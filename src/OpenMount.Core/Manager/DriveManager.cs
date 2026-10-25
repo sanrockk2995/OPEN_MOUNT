@@ -66,6 +66,27 @@ namespace OpenMount.Core.Manager
             return _mountedDrives.ContainsKey(clean);
         }
 
+        public MountedDriveContext? GetContext(string driveLetter)
+        {
+            string clean = NormalizeDriveLetter(driveLetter);
+            _mountedDrives.TryGetValue(clean, out var context);
+            return context;
+        }
+
+        public async Task<StorageVolumeInfo?> GetVolumeInfoAsync(string driveLetter, CancellationToken ct = default)
+        {
+            var ctx = GetContext(driveLetter);
+            if (ctx == null) return null;
+            try
+            {
+                return await ctx.Provider.GetVolumeInfoAsync(ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public async Task<MountedDriveContext> MountAsync(DriveConfig config, IStorageProvider provider, CancellationToken ct = default)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));

@@ -67,11 +67,110 @@ namespace OpenMount.Windows
             set { _errorMessage = value; OnPropertyChanged(); }
         }
 
+        private ulong _totalBytes;
+        private ulong _freeBytes;
+        private string _capacityText = string.Empty;
+        private string _capacityDetails = string.Empty;
+        private double _usedPercentage;
+        private bool _hasCapacity;
+
+        public ulong TotalBytes
+        {
+            get => _totalBytes;
+            private set { _totalBytes = value; OnPropertyChanged(); }
+        }
+
+        public ulong FreeBytes
+        {
+            get => _freeBytes;
+            private set { _freeBytes = value; OnPropertyChanged(); }
+        }
+
+        public double UsedPercentage
+        {
+            get => _usedPercentage;
+            private set { _usedPercentage = value; OnPropertyChanged(); OnPropertyChanged(nameof(CapacityBarColor)); }
+        }
+
+        public string CapacityText
+        {
+            get => _capacityText;
+            private set { _capacityText = value; OnPropertyChanged(); }
+        }
+
+        public string CapacityDetails
+        {
+            get => _capacityDetails;
+            private set { _capacityDetails = value; OnPropertyChanged(); }
+        }
+
+        public bool HasCapacity
+        {
+            get => _hasCapacity;
+            private set { _hasCapacity = value; OnPropertyChanged(); }
+        }
+
+        public string CapacityBarColor
+        {
+            get
+            {
+                if (_usedPercentage >= 90.0) return "#DC3545"; // Red / Critical
+                if (_usedPercentage >= 80.0) return "#FD7E14"; // Orange / Warning
+                return "#0078D4"; // Accent Blue
+            }
+        }
+
+        public static string FormatBytes(ulong bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB", "PB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024.0 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024.0;
+            }
+            return $"{len:0.##} {sizes[order]}";
+        }
+
+        public async Task RefreshCapacityAsync()
+        {
+            if (!IsMounted)
+            {
+                HasCapacity = false;
+                CapacityText = string.Empty;
+                CapacityDetails = string.Empty;
+                UsedPercentage = 0;
+                return;
+            }
+
+            try
+            {
+                var vol = await App.Manager.GetVolumeInfoAsync(DriveLetter);
+                if (vol != null && vol.TotalSize > 0)
+                {
+                    TotalBytes = vol.TotalSize;
+                    FreeBytes = vol.FreeSize;
+                    ulong used = TotalBytes > FreeBytes ? TotalBytes - FreeBytes : 0;
+                    UsedPercentage = TotalBytes > 0 ? ((double)used / TotalBytes) * 100.0 : 0.0;
+
+                    CapacityText = $"{FormatBytes(used)} / {FormatBytes(TotalBytes)}";
+                    CapacityDetails = $"{FormatBytes(FreeBytes)} free ({UsedPercentage:0.#}%)";
+                    HasCapacity = true;
+                }
+            }
+            catch { }
+        }
+
         public DriveViewModel(DriveConfig config)
         {
             Config = config ?? throw new ArgumentNullException(nameof(config));
             IsMounted = App.Manager.IsMounted(config.DriveLetter);
             Status = IsMounted ? "Mounted" : "Disconnected";
+            if (IsMounted)
+            {
+                _ = RefreshCapacityAsync();
+            }
         }
 
         public async Task ConnectAsync()
@@ -88,6 +187,7 @@ namespace OpenMount.Windows
                 await App.Manager.MountAsync(Config, provider);
                 IsMounted = true;
                 Status = "Mounted";
+                await RefreshCapacityAsync();
             }
             catch (Exception ex)
             {
@@ -114,6 +214,7 @@ namespace OpenMount.Windows
                 IsMounted = false;
                 Status = "Disconnected";
                 ErrorMessage = null;
+                await RefreshCapacityAsync();
             }
             catch (Exception ex)
             {

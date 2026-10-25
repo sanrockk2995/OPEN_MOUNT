@@ -96,6 +96,24 @@
                                                 </TextBlock.Style>
                                             </TextBlock>
                                         </StackPanel>
+
+                                        <!-- Storage Capacity / Usage (RaiDrive style) -->
+                                        <StackPanel Margin="0,6,20,0" Visibility="{Binding HasCapacity, Converter={StaticResource BoolToVisConverter}}">
+                                            <Grid Margin="0,0,0,3">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                                    <TextBlock Text="Storage: " FontSize="11" FontWeight="SemiBold" Foreground="#495057"/>
+                                                    <TextBlock Text="{Binding CapacityText}" FontSize="11" FontWeight="SemiBold" Foreground="#212529"/>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding CapacityDetails}" FontSize="11" Foreground="#6C757D" HorizontalAlignment="Right"/>
+                                            </Grid>
+
+                                            <Grid Height="6">
+                                                <Border Background="#E9ECEF" CornerRadius="3"/>
+                                                <ProgressBar Value="{Binding UsedPercentage, Mode=OneWay}" Maximum="100" Minimum="0" 
+                                                             Height="6" BorderThickness="0" Background="Transparent"
+                                                             Foreground="{Binding CapacityBarColor}"/>
+                                            </Grid>
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <!-- Actions -->

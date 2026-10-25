@@ -57,7 +57,7 @@ namespace OpenMount.Cli
                         return await HandleConfigAsync(options);
 
                     case "list":
-                        return HandleList();
+                        return await HandleListAsync();
 
                     case "version":
                         Console.WriteLine("OpenMount v1.0.0 (WinFsp-backed Virtual Cloud Storage)");
@@ -314,7 +314,7 @@ Examples:
             return 1;
         }
 
-        private static int HandleList()
+        private static async Task<int> HandleListAsync()
         {
             var active = Manager.GetMountedDrives();
             if (active.Count == 0)
@@ -323,13 +323,38 @@ Examples:
                 return 0;
             }
 
-            Console.WriteLine($"{"Letter",-8} {"Provider",-12} {"Mounted At",-25} {"Label"}");
-            Console.WriteLine(new string('-', 65));
+            Console.WriteLine($"{"Letter",-8} {"Provider",-12} {"Capacity (Used / Total)",-28} {"Mounted At",-22} {"Label"}");
+            Console.WriteLine(new string('-', 85));
             foreach (var m in active)
             {
-                Console.WriteLine($"{m.Config.DriveLetter,-8} {m.Provider.ProviderId,-12} {m.MountedAtUtc.ToLocalTime(),-25} {m.Config.Label}");
+                string cap = "N/A";
+                try
+                {
+                    var vol = await m.Provider.GetVolumeInfoAsync();
+                    if (vol != null && vol.TotalSize > 0)
+                    {
+                        ulong used = vol.TotalSize > vol.FreeSize ? vol.TotalSize - vol.FreeSize : 0;
+                        cap = $"{FormatBytes(used)} / {FormatBytes(vol.TotalSize)}";
+                    }
+                }
+                catch { }
+
+                Console.WriteLine($"{m.Config.DriveLetter,-8} {m.Provider.ProviderId,-12} {cap,-28} {m.MountedAtUtc.ToLocalTime(),-22} {m.Config.Label}");
             }
             return 0;
+        }
+
+        private static string FormatBytes(ulong bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB", "PB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024.0 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024.0;
+            }
+            return $"{len:0.##} {sizes[order]}";
         }
     }
 }

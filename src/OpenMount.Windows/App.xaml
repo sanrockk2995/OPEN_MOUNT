@@ -4,6 +4,8 @@
              Startup="Application_Startup"
              Exit="Application_Exit">
     <Application.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+
         <!-- Modern Windows Flat Styles -->
         <Style TargetType="Button">
             <Setter Property="Background" Value="#0078D4"/>
