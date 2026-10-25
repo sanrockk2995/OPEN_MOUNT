@@ -9,6 +9,7 @@ using OpenMount.Core.Security;
 using OpenMount.Core.Storage;
 using OpenMount.Core.Storage.Local;
 using OpenMount.Core.Storage.S3;
+using OpenMount.Core.Storage.GoogleDrive;
 
 namespace OpenMount.Cli
 {
@@ -226,9 +227,37 @@ Examples:
 
                 provider = new S3StorageProvider(s3Cfg, displayName: label);
             }
+            else if (providerType == "gdrive" || providerType == "google")
+            {
+                if (!opts.TryGetValue("client-id", out var clientId) || string.IsNullOrWhiteSpace(clientId))
+                {
+                    Console.Error.WriteLine("[Error] Google Drive provider requires --client-id <oauth_client_id>");
+                    return 1;
+                }
+
+                string clientSecret = opts.TryGetValue("client-secret", out var cs) ? cs : string.Empty;
+                string user = opts.TryGetValue("user", out var u) ? u : "default";
+
+                config.SetSetting("client_id", clientId);
+                config.SetSetting("client_secret", clientSecret);
+                config.SetSetting("user", user);
+
+                var gConfig = new GoogleDriveOAuthConfig
+                {
+                    ClientId = clientId,
+                    ClientSecret = clientSecret,
+                    UserIdentifier = user
+                };
+
+                Console.WriteLine("[OpenMount] Initiating Google OAuth 2.0 PKCE authentication...");
+                var authService = new GoogleDriveAuthService(gConfig);
+                var driveService = await authService.CreateDriveServiceAsync();
+
+                provider = new GoogleDriveStorageProvider(gConfig, driveService, disposeService: true, displayName: label);
+            }
             else
             {
-                Console.Error.WriteLine($"[Error] Unsupported provider type '{providerType}'. Supported: local, s3");
+                Console.Error.WriteLine($"[Error] Unsupported provider type '{providerType}'. Supported: local, s3, gdrive");
                 return 1;
             }
 
