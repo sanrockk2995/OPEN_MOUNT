@@ -12,6 +12,11 @@ namespace OpenMount.Core.FileSystem
         public bool IsModified { get; set; }
         public uint GrantedAccess { get; }
 
+        public static string UnsavedRecoveryDir { get; set; } =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OpenMount", "unsaved");
+
+        public string? LastPreservedRecoveryPath { get; private set; }
+
         public VirtualFileDesc(VirtualFileNode node, uint grantedAccess = 0)
         {
             Node = node ?? throw new ArgumentNullException(nameof(node));
@@ -43,12 +48,33 @@ namespace OpenMount.Core.FileSystem
 
             if (!string.IsNullOrEmpty(StagingFilePath) && File.Exists(StagingFilePath))
             {
-                try
+                if (Node.OpenCount <= 1)
                 {
-                    File.Delete(StagingFilePath);
+                    if (IsModified)
+                    {
+                        // Preservation: if upload failed or was aborted before successful commit,
+                        // quarantine the modified file in the unsaved recovery directory.
+                        try
+                        {
+                            if (!Directory.Exists(UnsavedRecoveryDir))
+                            {
+                                Directory.CreateDirectory(UnsavedRecoveryDir);
+                            }
+                            string safeName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Path.GetFileName(StagingFilePath)}_{Path.GetFileName(Node.Path)}";
+                            string recoveryPath = Path.Combine(UnsavedRecoveryDir, safeName);
+                            File.Copy(StagingFilePath, recoveryPath, overwrite: true);
+                            LastPreservedRecoveryPath = recoveryPath;
+                        }
+                        catch { }
+                    }
+
+                    try
+                    {
+                        File.Delete(StagingFilePath);
+                    }
+                    catch { }
+                    StagingFilePath = null;
                 }
-                catch { }
-                StagingFilePath = null;
             }
         }
     }

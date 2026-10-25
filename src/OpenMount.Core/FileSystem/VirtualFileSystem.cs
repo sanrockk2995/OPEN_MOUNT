@@ -86,6 +86,15 @@ namespace OpenMount.Core.FileSystem
                 if (node.OpenCount <= 0)
                 {
                     _activeNodes.TryRemove(node.Path, out _);
+                    if (!string.IsNullOrEmpty(node.ActiveStagingFilePath) && File.Exists(node.ActiveStagingFilePath))
+                    {
+                        try
+                        {
+                            File.Delete(node.ActiveStagingFilePath);
+                        }
+                        catch { }
+                        node.ActiveStagingFilePath = null;
+                    }
                 }
             }
         }
@@ -145,6 +154,18 @@ namespace OpenMount.Core.FileSystem
             if (string.IsNullOrEmpty(fileName) || fileName == "\\" || fileName == "/")
             {
                 fileAttributes = (uint)FileAttributes.Directory;
+                securityDescriptor = DefaultSecurityDescriptor;
+                return STATUS_SUCCESS;
+            }
+
+            string clean = NormalizePath(fileName);
+            if (_activeNodes.TryGetValue(clean, out var activeNode))
+            {
+                fileAttributes = (uint)activeNode.Attributes;
+                if (activeNode.IsDirectory)
+                {
+                    fileAttributes |= (uint)FileAttributes.Directory;
+                }
                 securityDescriptor = DefaultSecurityDescriptor;
                 return STATUS_SUCCESS;
             }
@@ -214,6 +235,7 @@ namespace OpenMount.Core.FileSystem
                     var desc = new VirtualFileDesc(node, grantedAccess);
 
                     string tempPath = Path.Combine(_stagingDir, Guid.NewGuid().ToString("N") + ".tmp");
+                    node.ActiveStagingFilePath = tempPath;
                     desc.StagingFilePath = tempPath;
                     desc.StagingStream = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
                     desc.IsModified = true;
@@ -254,6 +276,54 @@ namespace OpenMount.Core.FileSystem
                 return STATUS_SUCCESS;
             }
 
+            string clean = NormalizePath(fileName);
+            if (_activeNodes.TryGetValue(clean, out var existingNode))
+            {
+                var node = AcquireNode(fileName, existingNode.IsDirectory, existingNode.Size, existingNode.Attributes);
+                var desc = new VirtualFileDesc(node, grantedAccess);
+
+                if (!node.IsDirectory)
+                {
+                    bool needWrite = (grantedAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA)) != 0;
+                    if (existingNode.ActiveStagingFilePath != null && File.Exists(existingNode.ActiveStagingFilePath))
+                    {
+                        desc.StagingFilePath = existingNode.ActiveStagingFilePath;
+                        desc.StagingStream = new FileStream(
+                            existingNode.ActiveStagingFilePath,
+                            FileMode.Open,
+                            FileAccess.ReadWrite,
+                            FileShare.ReadWrite | FileShare.Delete);
+                    }
+                    else if (needWrite)
+                    {
+                        string tempPath = Path.Combine(_stagingDir, Guid.NewGuid().ToString("N") + ".tmp");
+                        existingNode.ActiveStagingFilePath = tempPath;
+                        desc.StagingFilePath = tempPath;
+                        var staging = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+                        if (existingNode.Size > 0)
+                        {
+                            try
+                            {
+                                using var src = _storage.OpenReadAsync(fileName, 0, null).GetAwaiter().GetResult();
+                                src.CopyTo(staging);
+                                staging.Position = 0;
+                            }
+                            catch { }
+                        }
+                        desc.StagingStream = staging;
+                    }
+                    else
+                    {
+                        desc.ReadStream = _storage.OpenReadAsync(fileName, 0, null).GetAwaiter().GetResult();
+                    }
+                }
+
+                fileNode = node;
+                fileDesc = desc;
+                fileInfo = CreateFileInfo(node);
+                return STATUS_SUCCESS;
+            }
+
             try
             {
                 var meta = _storage.GetMetadataAsync(fileName).GetAwaiter().GetResult();
@@ -288,6 +358,7 @@ namespace OpenMount.Core.FileSystem
                     if (needWrite)
                     {
                         string tempPath = Path.Combine(_stagingDir, Guid.NewGuid().ToString("N") + ".tmp");
+                        node.ActiveStagingFilePath = tempPath;
                         desc.StagingFilePath = tempPath;
                         var staging = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
                         if (meta.Size > 0)

@@ -15,6 +15,7 @@ namespace OpenMount.Core.FileSystem
         public bool DeleteOnClose { get; set; }
         public int OpenCount;
         public readonly object LockObj = new object();
+        public string? ActiveStagingFilePath { get; set; }
 
         public VirtualFileNode(string path, bool isDirectory, long size = 0, FileAttributes attributes = FileAttributes.Normal)
         {

@@ -404,7 +404,7 @@ namespace OpenMount.Core.Storage.GoogleDrive
 
             if (existing != null && !existing.IsDirectory)
             {
-                // Update existing file content
+                // Update existing file content via Resumable Upload
                 var updateReq = _driveService.Files.Update(
                     new File { Name = fileName },
                     existing.Id,
@@ -412,15 +412,11 @@ namespace OpenMount.Core.Storage.GoogleDrive
                     "application/octet-stream");
                 updateReq.SupportsAllDrives = true;
 
-                var progress = await updateReq.UploadAsync(ct).ConfigureAwait(false);
-                if (progress.Status == Google.Apis.Upload.UploadStatus.Failed)
-                {
-                    throw new IOException($"Google Drive file update failed: {progress.Exception?.Message}", progress.Exception);
-                }
+                await ExecuteResumableUploadAsync(updateReq, clean, ct).ConfigureAwait(false);
             }
             else
             {
-                // Create new file
+                // Create new file via Resumable Upload
                 var fileMetadata = new File
                 {
                     Name = fileName,
@@ -433,14 +429,56 @@ namespace OpenMount.Core.Storage.GoogleDrive
                     "application/octet-stream");
                 createReq.SupportsAllDrives = true;
 
-                var progress = await createReq.UploadAsync(ct).ConfigureAwait(false);
-                if (progress.Status == Google.Apis.Upload.UploadStatus.Failed)
-                {
-                    throw new IOException($"Google Drive file creation failed: {progress.Exception?.Message}", progress.Exception);
-                }
+                await ExecuteResumableUploadAsync(createReq, clean, ct).ConfigureAwait(false);
             }
 
             InvalidateCache(parent.Id, clean);
+        }
+
+        private async Task ExecuteResumableUploadAsync<TRequest>(
+            Google.Apis.Upload.ResumableUpload<TRequest, File> uploader,
+            string virtualPath,
+            CancellationToken ct)
+        {
+            uploader.ChunkSize = Google.Apis.Upload.ResumableUpload.MinimumChunkSize * 4; // 1 MB chunking
+
+            int maxRetries = 3;
+            int retryCount = 0;
+
+            var progress = await uploader.UploadAsync(ct).ConfigureAwait(false);
+
+            while (progress.Status == Google.Apis.Upload.UploadStatus.Failed && retryCount < maxRetries && !ct.IsCancellationRequested)
+            {
+                retryCount++;
+                if (IsTransientUploadError(progress.Exception))
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryCount)), ct).ConfigureAwait(false);
+                    progress = await uploader.ResumeAsync(ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (progress.Status == Google.Apis.Upload.UploadStatus.Failed)
+            {
+                throw new IOException(
+                    $"Google Drive resumable upload failed for '{virtualPath}' after {retryCount} retries: {progress.Exception?.Message}",
+                    progress.Exception);
+            }
+        }
+
+        private static bool IsTransientUploadError(Exception? ex)
+        {
+            if (ex == null) return false;
+            if (ex is HttpRequestException || ex is IOException || ex is TimeoutException) return true;
+            if (ex is Google.GoogleApiException gex)
+            {
+                int code = (int)gex.HttpStatusCode;
+                if (code >= 500 || code == 429) return true;
+            }
+            return false;
         }
 
         public async Task CreateDirectoryAsync(string path, CancellationToken ct = default)

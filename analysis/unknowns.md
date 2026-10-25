@@ -1,7 +1,8 @@
 # Unknowns and Analysis Limitations Ledger
 
-**Target:** RaiDrive Mount 2026.10.0 (x64)  
-**Analysis Date:** 2026-10-25  
+**Target:** RaiDrive Mount 2026.10.0 (x64) vs. OpenMount Clean-Room Implementation  
+**Analysis & Verification Date:** 2026-10-25  
+**Engineer:** Byte (Senior Systems & Filesystem Engineer)
 
 ---
 
@@ -23,25 +24,39 @@
 
 ---
 
-## 2. Inferred Behaviors (Medium Confidence)
+## 2. Google Drive Live Testing & Setup Guidance
 
-1. **SQLite Database Schema:**
-   - `Microsoft.Data.Sqlite.SqliteConnection` is referenced in the service assembly, and the service log records `Database Init Start / Done`.
-   - Exact schema: Inferred to store directory node hierarchies, file revision timestamps, and cache eviction records. Not directly observed as a persistent `.db` file on disk during our snapshot (likely kept in-memory or dynamically created during file streaming).
-2. **Internal Proprietary Obfuscation:**
-   - Non-public classes in `RaiDrive.Mount.Service.x64.dll` are renamed with synthetic 36-character alphabetic identifiers (`GAIMLFHFHKIMNDDFLMAKPAGIDHNOJIKGIIGI`).
-   - Clean-room development is preferred and necessary to maintain independent copyright and clean engineering.
+Due to absence of pre-configured live client credentials in the testing environment, Google Drive operations are validated via comprehensive mock-based tests (`GoogleDriveTests.cs` and `ResumableUploadAndRecoveryTests.cs`, 5 passing tests covering OAuth, PKCE, metadata mapping, duplicate name disambiguation, range streaming, resumable upload chunking, and staging preservation).
+
+To execute live end-to-end mounts against a production Google Drive account:
+
+1. **Google Cloud Console Project**:
+   - Access [Google Cloud Console](https://console.cloud.google.com/).
+   - Create a project: e.g., `OpenMount-Research`.
+   - Enable the **Google Drive API** under `APIs & Services > Library`.
+2. **OAuth Consent Screen**:
+   - User Type: `External`.
+   - Add scope: `https://www.googleapis.com/auth/drive`.
+   - Add your Google account email under **Test Users**.
+3. **OAuth Client ID**:
+   - Application Type: `Desktop app`.
+   - Obtain `Client ID` (e.g. `*.apps.googleusercontent.com`) and `Client Secret`.
+4. **Mounting**:
+   - In `OpenMount.Windows.exe`, click `+ Add Drive` -> Select `Google Drive`.
+   - Enter `Client ID` and `Client Secret` -> Click `Authorize with Google...`.
+   - Consent in the opened browser window. Tokens are encrypted automatically to `%APPDATA%\OpenMount\tokens\user_primary.tok.enc`.
+   - Select an available drive letter (e.g. `G:`) and click `Connect`.
 
 ---
 
-## 3. Residual Unknowns & Bounded Limitations (To Not Speculate)
+## 3. Residual Unknowns & Bounded Limitations (Non-Speculative)
 
 1. **Proprietary License Server Protocol:**
    - SignalR threads connect to RaiDrive license backend (`LisenseSession : Create SignalR Thread`).
-   - *Resolution:* Out of scope. OpenMount is an open, independent tool and does not connect to or implement proprietary commercial licensing servers.
+   - *Status:* Out of scope. OpenMount is an open, independent tool and does not connect to or implement proprietary commercial licensing servers.
 2. **Bandwidth Throttling Micro-Algorithms:**
    - Exact token-bucket parameters for bandwidth limiting (`CANBANDWIDTH False` in log).
-   - *Resolution:* Standard token-bucket or leaky-bucket rate limiting can be implemented in the storage provider stream wrapper if requested.
+   - *Status:* Standard token-bucket or leaky-bucket rate limiting can be integrated in the storage provider stream wrapper if required.
 3. **Shell Extension Context Menu IPC:**
    - `RaiDrive.ShellExtension.x64.dll` interacts with Windows Explorer via COM interfaces (`IShellExtInit`, `IContextMenu`).
-   - *Resolution:* Non-critical for MVP. Drive letter mounting functions completely via WinFsp and Windows shell notifications without requiring a custom shell extension DLL.
+   - *Status:* Non-critical. Native Windows drive mounting functions completely via WinFsp and Windows shell notifications (`SHChangeNotify`) without requiring custom Explorer COM shell extensions.

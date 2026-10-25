@@ -10,12 +10,15 @@
 | **Filesystem Semantics** | File Creation & Deletion | Supported | **Complete Parity** | `VirtualFileSystem.Create`, `DeleteFileAsync`, `DeleteDirectoryAsync` |
 | | Sequential & Random Read | Supported (Range request chunking) | **Complete Parity** | Range request streaming (`OpenReadAsync`) across S3 & Google Drive |
 | | File Writing & Appending | Staging file + asynchronous upload | **Complete Parity** | Local staging stream committed on `Cleanup` |
+| | Random-Access Seek & Multi-Handle | Supported | **Complete Parity** | Concurrent `FileStream` handles with `FileShare.ReadWrite`, verified via `Test_EndToEnd_RandomAccessSeekAndMultipleHandles` |
 | | Inode Sharing | Supported | **Complete Parity** | Thread-safe `_activeNodes` registry (`Test_ConcurrentHandles_ShareSameNode`) |
+| | Zero Data Loss Quarantine | Basic temp cache | **Enhanced (Quarantine)** | Auto-copies modified uncommitted drafts to `%APPDATA%\OpenMount\unsaved` on upload failure (`Test_FailedUpload_PreservesStagedDataInRecoveryDirectory`) |
 | | File Renaming & Moving | Supported | **Complete Parity** | Atomic move with parent folder ID reassignment |
 | | Directory Enumeration | Cached with background refresh | **Complete Parity** | In-memory directory cache with synthesized `.` and `..` |
 | **Storage Providers** | Local Folder Loopback | N/A (Cloud only) | **Verified Working** | `LocalStorageProvider.cs`, 5 dedicated unit tests |
 | | Amazon S3 / MinIO / R2 | Supported (`AWSSDK.S3`) | **Verified Working** | `S3StorageProvider.cs`, ByteRange streaming, 4 tests |
-| | Google Drive | Supported (OAuth2 PKCE) | **Verified Working** | Official Drive API v3, PKCE loopback, Range streaming, 4 tests |
+| | Google Drive API v3 | Supported (OAuth2 PKCE) | **Verified Working** | Official Drive API v3, PKCE loopback, Range streaming, 4 tests |
+| | Google Resumable Uploads | Supported (1 MB - 8 MB chunks) | **Complete Parity** | 1 MB chunking with exponential backoff `ResumeAsync` on transient 5xx/429 errors (`Test_ResumableUpload_InitiationAndProtocolHeaders`) |
 | | Google Workspace Docs | Supported (Read-only export) | **Verified Working** | Auto-export Docs to DOCX, Sheets to XLSX, Slides to PPTX |
 | | Duplicate Filename Handling | Supported | **Verified Working** | Deterministic disambiguation (`photo (2).jpg`) for Explorer |
 | | WebDAV / Nextcloud | Supported (`Rebex.Http`) | Planned (Phase 2) | Interface ready in `IStorageProvider` |

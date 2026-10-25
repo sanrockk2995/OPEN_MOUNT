@@ -219,6 +219,9 @@ Test suite verification executed via xUnit and .NET 8.0:
 | `Test_DpapiDataStore_StoreAndRetrieveToken` | `GoogleDrive` | DPAPI encryption of OAuth tokens | **PASSED** |
 | `Test_ListDirectory_DuplicateNameDisambiguationAndWorkspaceDocs` | `GoogleDrive` | Disambiguating duplicate names & Docs export | **PASSED** |
 | `Test_OpenReadAsync_ByteRangeStreaming` | `GoogleDrive` | HTTP Range header streaming for Drive files | **PASSED** |
+| `Test_ResumableUpload_InitiationAndProtocolHeaders` | `GoogleDrive` | Resumable upload session URI, chunk PUT, retry | **PASSED** |
+| `Test_FailedUpload_PreservesStagedDataInRecoveryDirectory` | `VirtualFileSystem` | Staging draft preservation to `%APPDATA%\OpenMount\unsaved` | **PASSED** |
 | `Test_EndToEnd_MountFilesystemOperationsAndUnmount` | Full Stack | Real WinFsp drive mount, Shell I/O, unmount | **PASSED** |
+| `Test_EndToEnd_RandomAccessSeekAndMultipleHandles` | Full Stack | Real WinFsp multi-handle concurrent seek/write/truncation | **PASSED** |
 
-**Summary: 20 Passed, 0 Failed, 0 Skipped.**
+**Summary: 23 Passed, 0 Failed, 0 Skipped.**

@@ -130,5 +130,60 @@ namespace OpenMount.Tests
                 Assert.False(_manager.IsMounted(driveLetter));
             }
         }
+
+        [Fact]
+        public async Task Test_EndToEnd_RandomAccessSeekAndMultipleHandles()
+        {
+            string driveLetter = FindAvailableDriveLetter();
+            _mountedDriveLetter = driveLetter;
+
+            var config = new DriveConfig
+            {
+                DriveLetter = driveLetter,
+                Label = "E2E Seek Test",
+                ProviderType = "local"
+            };
+
+            var provider = new LocalStorageProvider(_testFolder, "E2E Seek Store");
+            var context = await _manager.MountAsync(config, provider);
+            Assert.NotNull(context);
+
+            string root = driveLetter + "\\";
+            await Task.Delay(250);
+
+            try
+            {
+                string filePath = Path.Combine(root, "seek_test.bin");
+
+                // 1. Write file with multiple concurrent FileStream handles (FileShare.ReadWrite)
+                using (var fs1 = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
+                using (var fs2 = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                {
+                    byte[] initial = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+                    fs1.Write(initial, 0, initial.Length);
+                    fs1.Flush();
+
+                    // Random-access write at offset 2 via handle 2
+                    fs2.Seek(2, SeekOrigin.Begin);
+                    fs2.Write(new byte[] { 99, 100 }, 0, 2);
+                    fs2.Flush();
+
+                    // Truncate via handle 1
+                    fs1.SetLength(4);
+                    fs1.Flush();
+                }
+
+                // 2. Read back and verify bytes
+                byte[] result = File.ReadAllBytes(filePath);
+                Assert.Equal(4, result.Length);
+                Assert.Equal(new byte[] { 1, 2, 99, 100 }, result);
+            }
+            finally
+            {
+                await _manager.UnmountAsync(driveLetter);
+                _mountedDriveLetter = null;
+                Assert.False(_manager.IsMounted(driveLetter));
+            }
+        }
     }
 }
