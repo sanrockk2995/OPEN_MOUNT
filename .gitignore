@@ -1,0 +1,21 @@
+# .NET Build artifacts
+**/bin/
+**/obj/
+publish/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+
+# Local portable .NET SDK
+.dotnet/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# REA binary extracts and target copies
+analysis/target_copy/
+analysis/extracted_gui/
+analysis/extracted_service/
