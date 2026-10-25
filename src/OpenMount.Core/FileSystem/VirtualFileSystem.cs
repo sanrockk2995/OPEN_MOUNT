@@ -106,6 +106,133 @@ namespace OpenMount.Core.FileSystem
             return clean.StartsWith("\\") ? clean : "\\" + clean;
         }
 
+        private static readonly HashSet<string> ExplorerProbeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "desktop.ini",
+            "autorun.inf",
+            "folder.ico",
+            "folder.gif",
+            "folder.jpg",
+            "$RECYCLE.BIN",
+            "System Volume Information",
+            "Thumbs.db",
+            ".Trash",
+            ".Trash-1000"
+        };
+
+        private class CachedMetadata
+        {
+            public StorageItemMetadata Metadata { get; }
+            public DateTime CachedAtUtc { get; }
+
+            public CachedMetadata(StorageItemMetadata metadata)
+            {
+                Metadata = metadata;
+                CachedAtUtc = DateTime.UtcNow;
+            }
+
+            public bool IsExpired(TimeSpan ttl) => (DateTime.UtcNow - CachedAtUtc) > ttl;
+        }
+
+        private class CachedDirectoryListing
+        {
+            public HashSet<string> ChildNames { get; }
+            public DateTime CachedAtUtc { get; }
+
+            public CachedDirectoryListing(IEnumerable<string> childNames)
+            {
+                ChildNames = new HashSet<string>(childNames, StringComparer.OrdinalIgnoreCase);
+                CachedAtUtc = DateTime.UtcNow;
+            }
+
+            public bool IsExpired(TimeSpan ttl) => (DateTime.UtcNow - CachedAtUtc) > ttl;
+        }
+
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedMetadata> _metadataCache =
+            new System.Collections.Concurrent.ConcurrentDictionary<string, CachedMetadata>(StringComparer.OrdinalIgnoreCase);
+
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedDirectoryListing> _directoryListingCache =
+            new System.Collections.Concurrent.ConcurrentDictionary<string, CachedDirectoryListing>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
+
+        private VolumeInfo _cachedVolumeInfo;
+        private DateTime _volumeInfoExpiryUtc = DateTime.MinValue;
+        private readonly object _volumeInfoLock = new object();
+
+        private static string GetParentPath(string path)
+        {
+            string clean = NormalizePath(path);
+            int lastIdx = clean.LastIndexOf('\\');
+            if (lastIdx <= 0) return "\\";
+            return clean.Substring(0, lastIdx);
+        }
+
+        private void InvalidateCache(string path)
+        {
+            string clean = NormalizePath(path);
+            _metadataCache.TryRemove(clean, out _);
+            string parent = GetParentPath(clean);
+            _directoryListingCache.TryRemove(parent, out _);
+        }
+
+        private StorageItemMetadata? GetCachedOrRemoteMetadata(string path)
+        {
+            string clean = NormalizePath(path);
+            if (clean == "\\" || clean == "/")
+            {
+                return new StorageItemMetadata
+                {
+                    Path = "\\",
+                    Name = "\\",
+                    IsDirectory = true,
+                    CreatedTime = DateTimeOffset.UtcNow,
+                    LastAccessTime = DateTimeOffset.UtcNow,
+                    LastModifiedTime = DateTimeOffset.UtcNow,
+                    Attributes = FileAttributes.Directory
+                };
+            }
+
+            // 1. Fast in-memory metadata hit
+            if (_metadataCache.TryGetValue(clean, out var cached) && !cached.IsExpired(CacheTtl))
+            {
+                return cached.Metadata;
+            }
+
+            string baseName = Path.GetFileName(clean);
+
+            // 2. Fast-fail negative probe cache for known Explorer shell probes
+            if (ExplorerProbeNames.Contains(baseName))
+            {
+                return null;
+            }
+
+            // 3. Negative check against cached parent directory
+            string parent = GetParentPath(clean);
+            if (_directoryListingCache.TryGetValue(parent, out var parentListing) && !parentListing.IsExpired(CacheTtl))
+            {
+                if (!parentListing.ChildNames.Contains(baseName))
+                {
+                    return null;
+                }
+            }
+
+            // 4. Remote storage lookup
+            try
+            {
+                var meta = _storage.GetMetadataAsync(clean).GetAwaiter().GetResult();
+                if (meta != null)
+                {
+                    _metadataCache[clean] = new CachedMetadata(meta);
+                }
+                return meta;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public override int Init(object host)
         {
             if (host is FileSystemHost hostObj)
@@ -119,26 +246,51 @@ namespace OpenMount.Core.FileSystem
                 hostObj.UnicodeOnDisk = true;
                 hostObj.VolumeCreationTime = (ulong)DateTime.UtcNow.ToFileTimeUtc();
                 hostObj.VolumeSerialNumber = 0x4F50454E; // "OPEN"
+
+                // High-performance WinFsp kernel caching (matching RaiDrive configuration)
+                // Eliminates synchronous RPC trips from kernel to user mode on repeated metadata queries
+                hostObj.FileInfoTimeout = 5000;      // 5s FileInfo cache in winfsp.sys kernel
+                hostObj.DirInfoTimeout = 5000;       // 5s directory entry cache in winfsp.sys kernel
+                hostObj.VolumeInfoTimeout = 30000;   // 30s volume information cache
+                hostObj.SecurityTimeout = 30000;     // 30s security descriptor cache
             }
             return STATUS_SUCCESS;
         }
 
         public override int GetVolumeInfo(out VolumeInfo volumeInfo)
         {
-            volumeInfo = default;
+            lock (_volumeInfoLock)
+            {
+                if (DateTime.UtcNow < _volumeInfoExpiryUtc && _cachedVolumeInfo.TotalSize > 0)
+                {
+                    volumeInfo = _cachedVolumeInfo;
+                    return STATUS_SUCCESS;
+                }
+            }
+
             try
             {
                 var vol = _storage.GetVolumeInfoAsync().GetAwaiter().GetResult();
-                volumeInfo.TotalSize = vol.TotalSize;
-                volumeInfo.FreeSize = vol.FreeSize;
-                volumeInfo.SetVolumeLabel(vol.VolumeLabel ?? "OpenMount");
+                var vi = default(VolumeInfo);
+                vi.TotalSize = vol.TotalSize;
+                vi.FreeSize = vol.FreeSize;
+                vi.SetVolumeLabel(vol.VolumeLabel ?? "OpenMount");
+
+                lock (_volumeInfoLock)
+                {
+                    _cachedVolumeInfo = vi;
+                    _volumeInfoExpiryUtc = DateTime.UtcNow.AddSeconds(30);
+                }
+                volumeInfo = vi;
                 return STATUS_SUCCESS;
             }
             catch
             {
-                volumeInfo.TotalSize = 100UL * 1024 * 1024 * 1024;
-                volumeInfo.FreeSize = 50UL * 1024 * 1024 * 1024;
-                volumeInfo.SetVolumeLabel("OpenMount");
+                var vi = default(VolumeInfo);
+                vi.TotalSize = 100UL * 1024 * 1024 * 1024;
+                vi.FreeSize = 50UL * 1024 * 1024 * 1024;
+                vi.SetVolumeLabel("OpenMount");
+                volumeInfo = vi;
                 return STATUS_SUCCESS;
             }
         }
@@ -170,26 +322,19 @@ namespace OpenMount.Core.FileSystem
                 return STATUS_SUCCESS;
             }
 
-            try
-            {
-                var meta = _storage.GetMetadataAsync(fileName).GetAwaiter().GetResult();
-                if (meta == null)
-                {
-                    return STATUS_OBJECT_NAME_NOT_FOUND;
-                }
-
-                fileAttributes = (uint)meta.Attributes;
-                if (meta.IsDirectory)
-                {
-                    fileAttributes |= (uint)FileAttributes.Directory;
-                }
-                securityDescriptor = DefaultSecurityDescriptor;
-                return STATUS_SUCCESS;
-            }
-            catch
+            var meta = GetCachedOrRemoteMetadata(clean);
+            if (meta == null)
             {
                 return STATUS_OBJECT_NAME_NOT_FOUND;
             }
+
+            fileAttributes = (uint)meta.Attributes;
+            if (meta.IsDirectory)
+            {
+                fileAttributes |= (uint)FileAttributes.Directory;
+            }
+            securityDescriptor = DefaultSecurityDescriptor;
+            return STATUS_SUCCESS;
         }
 
         public override int Create(
@@ -215,6 +360,7 @@ namespace OpenMount.Core.FileSystem
                 try
                 {
                     _storage.CreateDirectoryAsync(fileName).GetAwaiter().GetResult();
+                    InvalidateCache(fileName);
                     var node = AcquireNode(fileName, true, 0, (FileAttributes)fileAttributes);
                     var desc = new VirtualFileDesc(node, grantedAccess);
                     fileNode = node;
@@ -231,6 +377,7 @@ namespace OpenMount.Core.FileSystem
             {
                 try
                 {
+                    InvalidateCache(fileName);
                     var node = AcquireNode(fileName, false, 0, (FileAttributes)fileAttributes);
                     var desc = new VirtualFileDesc(node, grantedAccess);
 
@@ -326,7 +473,7 @@ namespace OpenMount.Core.FileSystem
 
             try
             {
-                var meta = _storage.GetMetadataAsync(fileName).GetAwaiter().GetResult();
+                var meta = GetCachedOrRemoteMetadata(clean);
                 if (meta == null)
                 {
                     return STATUS_OBJECT_NAME_NOT_FOUND;
@@ -632,6 +779,8 @@ namespace OpenMount.Core.FileSystem
             try
             {
                 _storage.MoveAsync(fileName, newFileName).GetAwaiter().GetResult();
+                InvalidateCache(fileName);
+                InvalidateCache(newFileName);
                 string oldNorm = NormalizePath(fileName);
                 string newNorm = NormalizePath(newFileName);
                 if (_activeNodes.TryRemove(oldNorm, out var n))
@@ -668,6 +817,7 @@ namespace OpenMount.Core.FileSystem
                     {
                         _storage.DeleteFileAsync(node.Path).GetAwaiter().GetResult();
                     }
+                    InvalidateCache(node.Path);
                 }
                 catch { }
 
@@ -684,6 +834,7 @@ namespace OpenMount.Core.FileSystem
                     desc.StagingStream.Position = 0;
                     _storage.CreateFileAsync(node.Path, desc.StagingStream).GetAwaiter().GetResult();
                     desc.IsModified = false;
+                    InvalidateCache(node.Path);
                 }
                 catch { }
             }
@@ -746,8 +897,13 @@ namespace OpenMount.Core.FileSystem
                     var items = _storage.ListDirectoryAsync(node.Path).GetAwaiter().GetResult();
                     if (items != null)
                     {
+                        var childNames = new List<string>(items.Count);
                         foreach (var it in items)
                         {
+                            string childPath = NormalizePath(node.Path == "\\" ? "\\" + it.Name : node.Path + "\\" + it.Name);
+                            _metadataCache[childPath] = new CachedMetadata(it);
+                            childNames.Add(it.Name);
+
                             list.Add(new DirEntryItem(
                                 it.Name,
                                 it.IsDirectory,
@@ -757,6 +913,7 @@ namespace OpenMount.Core.FileSystem
                                 it.LastModifiedTime,
                                 it.Attributes));
                         }
+                        _directoryListingCache[NormalizePath(node.Path)] = new CachedDirectoryListing(childNames);
                     }
                 }
                 catch { }

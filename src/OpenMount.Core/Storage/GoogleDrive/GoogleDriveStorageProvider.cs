@@ -29,6 +29,19 @@ namespace OpenMount.Core.Storage.GoogleDrive
 
         private readonly TimeSpan _cacheTtl = TimeSpan.FromSeconds(30);
 
+        private static readonly HashSet<string> ExplorerProbeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "desktop.ini", "autorun.inf", "folder.ico", "folder.gif", "folder.jpg",
+            "$RECYCLE.BIN", "System Volume Information", "Thumbs.db", ".Trash", ".Trash-1000"
+        };
+
+        private readonly ConcurrentDictionary<string, DateTime> _negativeCache =
+            new ConcurrentDictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+
+        private StorageVolumeInfo? _cachedVolumeInfo;
+        private DateTime _volumeInfoExpiryUtc = DateTime.MinValue;
+        private readonly object _volumeInfoLock = new object();
+
         public string ProviderId => "gdrive";
         public string DisplayName { get; }
 
@@ -76,6 +89,14 @@ namespace OpenMount.Core.Storage.GoogleDrive
 
         public async Task<StorageVolumeInfo> GetVolumeInfoAsync(CancellationToken ct = default)
         {
+            lock (_volumeInfoLock)
+            {
+                if (DateTime.UtcNow < _volumeInfoExpiryUtc && _cachedVolumeInfo != null)
+                {
+                    return _cachedVolumeInfo;
+                }
+            }
+
             try
             {
                 var aboutReq = _driveService.About.Get();
@@ -88,13 +109,21 @@ namespace OpenMount.Core.Storage.GoogleDrive
 
                 string userDisplay = about.User?.DisplayName ?? "User";
 
-                return new StorageVolumeInfo
+                var vi = new StorageVolumeInfo
                 {
                     TotalSize = limit,
                     FreeSize = free,
                     VolumeLabel = $"{DisplayName} ({userDisplay})",
                     FileSystemName = "OpenMountGDrive"
                 };
+
+                lock (_volumeInfoLock)
+                {
+                    _cachedVolumeInfo = vi;
+                    _volumeInfoExpiryUtc = DateTime.UtcNow.AddSeconds(60);
+                }
+
+                return vi;
             }
             catch
             {
@@ -124,6 +153,17 @@ namespace OpenMount.Core.Storage.GoogleDrive
                     LastModifiedTime = DateTimeOffset.UtcNow,
                     Attributes = FileAttributes.Directory
                 };
+            }
+
+            string baseName = Path.GetFileName(clean);
+            if (ExplorerProbeNames.Contains(baseName) && !_pathCache.ContainsKey(clean))
+            {
+                return null;
+            }
+
+            if (_negativeCache.TryGetValue(clean, out var negExpiry) && (DateTime.UtcNow - negExpiry) < _cacheTtl)
+            {
+                return null;
             }
 
             var item = await ResolveItemByPathAsync(clean, ct).ConfigureAwait(false);
@@ -333,6 +373,7 @@ namespace OpenMount.Core.Storage.GoogleDrive
                 var match = children.FirstOrDefault(c => string.Equals(c.Name, segment, StringComparison.OrdinalIgnoreCase));
                 if (match == null)
                 {
+                    _negativeCache[clean] = DateTime.UtcNow;
                     return null;
                 }
 
@@ -576,6 +617,7 @@ namespace OpenMount.Core.Storage.GoogleDrive
         {
             _dirCache.TryRemove(parentFolderId, out _);
             _pathCache.TryRemove(virtualPath, out _);
+            _negativeCache.TryRemove(virtualPath, out _);
         }
 
         private static string NormalizePath(string path)
