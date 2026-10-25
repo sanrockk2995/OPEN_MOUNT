@@ -1,0 +1,195 @@
+using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows;
+using MessageBox = System.Windows.MessageBox;
+using OpenMount.Core.Manager;
+using OpenMount.Core.Storage;
+using OpenMount.Core.Storage.GoogleDrive;
+using OpenMount.Core.Storage.Local;
+using OpenMount.Core.Storage.S3;
+
+namespace OpenMount.Windows
+{
+    public class DriveViewModel : INotifyPropertyChanged
+    {
+        private string _status = "Disconnected";
+        private bool _isMounted;
+        private bool _isBusy;
+        private string? _errorMessage;
+
+        public DriveConfig Config { get; set; }
+
+        public string DriveLetter => Config.DriveLetter;
+        public string Label => Config.Label;
+        public string ProviderType => Config.ProviderType;
+
+        public string ProviderDisplay => Config.ProviderType.ToLowerInvariant() switch
+        {
+            "gdrive" or "google" => "Google Drive",
+            "s3" => "Amazon S3 / MinIO",
+            "local" => "Local Folder",
+            _ => Config.ProviderType
+        };
+
+        public string ProviderDetails => Config.ProviderType.ToLowerInvariant() switch
+        {
+            "gdrive" or "google" => $"User: {Config.GetSetting("user") ?? "default"}",
+            "s3" => $"Bucket: {Config.GetSetting("bucket")}",
+            "local" => Config.GetSetting("path") ?? "Not configured",
+            _ => string.Empty
+        };
+
+        public string Status
+        {
+            get => _status;
+            set { _status = value; OnPropertyChanged(); }
+        }
+
+        public bool IsMounted
+        {
+            get => _isMounted;
+            set { _isMounted = value; OnPropertyChanged(); }
+        }
+
+        public bool IsBusy
+        {
+            get => _isBusy;
+            set { _isBusy = value; OnPropertyChanged(); }
+        }
+
+        public string? ErrorMessage
+        {
+            get => _errorMessage;
+            set { _errorMessage = value; OnPropertyChanged(); }
+        }
+
+        public DriveViewModel(DriveConfig config)
+        {
+            Config = config ?? throw new ArgumentNullException(nameof(config));
+            IsMounted = App.Manager.IsMounted(config.DriveLetter);
+            Status = IsMounted ? "Mounted" : "Disconnected";
+        }
+
+        public async Task ConnectAsync()
+        {
+            if (IsBusy || IsMounted) return;
+
+            IsBusy = true;
+            Status = "Connecting...";
+            ErrorMessage = null;
+
+            try
+            {
+                IStorageProvider provider = await CreateStorageProviderAsync(Config);
+                await App.Manager.MountAsync(Config, provider);
+                IsMounted = true;
+                Status = "Mounted";
+            }
+            catch (Exception ex)
+            {
+                Status = "Error";
+                ErrorMessage = ex.Message;
+                MessageBox.Show($"Failed to mount drive {DriveLetter}:\n{ex.Message}", "OpenMount Mount Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        public async Task DisconnectAsync()
+        {
+            if (IsBusy || !IsMounted) return;
+
+            IsBusy = true;
+            Status = "Disconnecting...";
+
+            try
+            {
+                await App.Manager.UnmountAsync(DriveLetter);
+                IsMounted = false;
+                Status = "Disconnected";
+                ErrorMessage = null;
+            }
+            catch (Exception ex)
+            {
+                Status = "Error";
+                ErrorMessage = ex.Message;
+                MessageBox.Show($"Failed to unmount drive {DriveLetter}:\n{ex.Message}", "OpenMount Unmount Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        public void OpenInExplorer()
+        {
+            if (!IsMounted) return;
+            try
+            {
+                string path = DriveLetter.TrimEnd('\\') + "\\";
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open Explorer:\n{ex.Message}", "OpenMount", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private static async Task<IStorageProvider> CreateStorageProviderAsync(DriveConfig config)
+        {
+            string type = config.ProviderType.ToLowerInvariant();
+            if (type == "local")
+            {
+                string path = config.GetSetting("path") ?? throw new InvalidOperationException("Local path is not configured.");
+                return new LocalStorageProvider(path, config.Label);
+            }
+            else if (type == "s3")
+            {
+                var s3Config = new S3StorageConfig
+                {
+                    BucketName = config.GetSetting("bucket") ?? string.Empty,
+                    AccessKey = config.GetSetting("key") ?? string.Empty,
+                    SecretKey = config.GetSetting("secret") ?? string.Empty,
+                    ServiceUrl = config.GetSetting("endpoint") ?? "https://s3.amazonaws.com",
+                    Region = config.GetSetting("region") ?? "us-east-1"
+                };
+                return new S3StorageProvider(s3Config, displayName: config.Label);
+            }
+            else if (type == "gdrive" || type == "google")
+            {
+                string clientId = config.GetSetting("client_id") ?? string.Empty;
+                string clientSecret = config.GetSetting("client_secret") ?? string.Empty;
+                string user = config.GetSetting("user") ?? "default";
+
+                var gConfig = new GoogleDriveOAuthConfig
+                {
+                    ClientId = clientId,
+                    ClientSecret = clientSecret,
+                    UserIdentifier = user
+                };
+
+                var authService = new GoogleDriveAuthService(gConfig);
+                var driveService = await authService.CreateDriveServiceAsync();
+                return new GoogleDriveStorageProvider(gConfig, driveService, disposeService: true, displayName: config.Label);
+            }
+
+            throw new NotSupportedException($"Storage provider '{config.ProviderType}' is not supported.");
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+    }
+}
