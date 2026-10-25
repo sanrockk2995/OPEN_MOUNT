@@ -12,6 +12,7 @@ namespace OpenMount.Core.Manager
 
         public const int SHCNE_DRIVEREMOVED = 0x00000080;
         public const int SHCNE_DRIVEADD = 0x00000100;
+        public const int SHCNE_UPDATEITEM = 0x00002000;
         public const uint SHCNF_PATHW = 0x0005;
         public const uint SHCNF_FLUSH = 0x1000;
 
@@ -38,6 +39,7 @@ namespace OpenMount.Core.Manager
             try
             {
                 SHChangeNotify(SHCNE_DRIVEADD, SHCNF_PATHW | SHCNF_FLUSH, path, IntPtr.Zero);
+                SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSH, path, IntPtr.Zero);
             }
             catch { }
         }
@@ -48,6 +50,7 @@ namespace OpenMount.Core.Manager
             try
             {
                 SHChangeNotify(SHCNE_DRIVEREMOVED, SHCNF_PATHW | SHCNF_FLUSH, path, IntPtr.Zero);
+                SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSH, path, IntPtr.Zero);
             }
             catch { }
         }

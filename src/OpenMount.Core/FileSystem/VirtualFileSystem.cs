@@ -240,7 +240,10 @@ namespace OpenMount.Core.FileSystem
                 hostObj.SectorSize = 4096;
                 hostObj.SectorsPerAllocationUnit = 1;
                 hostObj.MaxComponentLength = 255;
-                hostObj.FileSystemName = "OpenMount";
+                // Report filesystem as NTFS so Windows Explorer enables native drive capacity bar,
+                // decorated free space display (System.PercentFull / System.Computer.DecoratedFreeSpace),
+                // and standard Windows shell volume properties.
+                hostObj.FileSystemName = "NTFS";
                 hostObj.CaseSensitiveSearch = false;
                 hostObj.CasePreservedNames = true;
                 hostObj.UnicodeOnDisk = true;
@@ -274,7 +277,10 @@ namespace OpenMount.Core.FileSystem
                 var vi = default(VolumeInfo);
                 vi.TotalSize = vol.TotalSize;
                 vi.FreeSize = vol.FreeSize;
-                vi.SetVolumeLabel(vol.VolumeLabel ?? "OpenMount");
+
+                string label = vol.VolumeLabel ?? "Google Drive";
+                if (label.Length > 31) label = label.Substring(0, 31);
+                vi.SetVolumeLabel(label);
 
                 lock (_volumeInfoLock)
                 {
@@ -297,6 +303,14 @@ namespace OpenMount.Core.FileSystem
 
         public override int SetVolumeLabel(string volumeLabel, out VolumeInfo volumeInfo)
         {
+            lock (_volumeInfoLock)
+            {
+                if (!string.IsNullOrEmpty(volumeLabel))
+                {
+                    string safeLabel = volumeLabel.Length > 31 ? volumeLabel.Substring(0, 31) : volumeLabel;
+                    _cachedVolumeInfo.SetVolumeLabel(safeLabel);
+                }
+            }
             return GetVolumeInfo(out volumeInfo);
         }
 

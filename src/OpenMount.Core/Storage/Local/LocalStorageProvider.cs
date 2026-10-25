@@ -59,7 +59,7 @@ namespace OpenMount.Core.Storage.Local
                     TotalSize = (ulong)drive.TotalSize,
                     FreeSize = (ulong)drive.AvailableFreeSpace,
                     VolumeLabel = DisplayName,
-                    FileSystemName = "OpenMountFS"
+                    FileSystemName = "NTFS"
                 });
             }
             catch
@@ -69,7 +69,7 @@ namespace OpenMount.Core.Storage.Local
                     TotalSize = 100UL * 1024 * 1024 * 1024,
                     FreeSize = 50UL * 1024 * 1024 * 1024,
                     VolumeLabel = DisplayName,
-                    FileSystemName = "OpenMountFS"
+                    FileSystemName = "NTFS"
                 });
             }
         }

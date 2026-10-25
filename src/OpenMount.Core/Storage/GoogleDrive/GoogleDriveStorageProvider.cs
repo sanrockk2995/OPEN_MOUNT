@@ -108,13 +108,15 @@ namespace OpenMount.Core.Storage.GoogleDrive
                 ulong free = limit > usage ? (limit - usage) : 0;
 
                 string userDisplay = about.User?.DisplayName ?? "User";
+                string label = !string.IsNullOrWhiteSpace(DisplayName) ? DisplayName : "Google Drive";
+                if (label.Length > 31) label = label.Substring(0, 31);
 
                 var vi = new StorageVolumeInfo
                 {
                     TotalSize = limit,
                     FreeSize = free,
-                    VolumeLabel = $"{DisplayName} ({userDisplay})",
-                    FileSystemName = "OpenMountGDrive"
+                    VolumeLabel = label,
+                    FileSystemName = "NTFS"
                 };
 
                 lock (_volumeInfoLock)
@@ -127,12 +129,15 @@ namespace OpenMount.Core.Storage.GoogleDrive
             }
             catch
             {
+                string fallbackLabel = !string.IsNullOrWhiteSpace(DisplayName) ? DisplayName : "Google Drive";
+                if (fallbackLabel.Length > 31) fallbackLabel = fallbackLabel.Substring(0, 31);
+
                 return new StorageVolumeInfo
                 {
                     TotalSize = 100UL * 1024 * 1024 * 1024,
                     FreeSize = 50UL * 1024 * 1024 * 1024,
-                    VolumeLabel = DisplayName,
-                    FileSystemName = "OpenMountGDrive"
+                    VolumeLabel = fallbackLabel,
+                    FileSystemName = "NTFS"
                 };
             }
         }

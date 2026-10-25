@@ -8,7 +8,7 @@ namespace OpenMount.Core.Storage
         public ulong TotalSize { get; set; }
         public ulong FreeSize { get; set; }
         public string VolumeLabel { get; set; } = "OpenMount";
-        public string FileSystemName { get; set; } = "OpenMountFS";
+        public string FileSystemName { get; set; } = "NTFS";
     }
 
     public class StorageItemMetadata

@@ -99,12 +99,15 @@ namespace OpenMount.Core.Storage.S3
 
         public Task<StorageVolumeInfo> GetVolumeInfoAsync(CancellationToken ct = default)
         {
+            string label = $"{DisplayName} ({_config.BucketName})";
+            if (label.Length > 31) label = label.Substring(0, 31);
+
             return Task.FromResult(new StorageVolumeInfo
             {
                 TotalSize = 10UL * 1024 * 1024 * 1024 * 1024, // 10 TB virtual capacity
                 FreeSize = 5UL * 1024 * 1024 * 1024 * 1024,
-                VolumeLabel = $"{DisplayName} ({_config.BucketName})",
-                FileSystemName = "OpenMountS3"
+                VolumeLabel = label,
+                FileSystemName = "NTFS"
             });
         }
 
