@@ -15,15 +15,37 @@ namespace OpenMount.Core.FileSystem
         private readonly IStorageProvider _storage;
         private readonly string _stagingDir;
         private static readonly byte[] DefaultSecurityDescriptor;
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, VirtualFileNode> _activeNodes =
+            new System.Collections.Concurrent.ConcurrentDictionary<string, VirtualFileNode>(StringComparer.OrdinalIgnoreCase);
 
         private const uint FILE_WRITE_DATA = 0x0002;
         private const uint FILE_APPEND_DATA = 0x0004;
 
         static VirtualFileSystem()
         {
-            var rawSd = new RawSecurityDescriptor("O:BAG:BAD:(A;;FA;;;WD)");
-            DefaultSecurityDescriptor = new byte[rawSd.BinaryLength];
-            rawSd.GetBinaryForm(DefaultSecurityDescriptor, 0);
+            DefaultSecurityDescriptor = CreateLeastPrivilegeSecurityDescriptor();
+        }
+
+        private static byte[] CreateLeastPrivilegeSecurityDescriptor()
+        {
+            try
+            {
+                var currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().User;
+                string userSid = currentUser?.Value ?? "WD";
+                // Grant Full Access (FA) to System (SY), Builtin Admins (BA), and Current User (userSid)
+                string sddl = $"O:BAG:BAD:(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;{userSid})";
+                var rawSd = new RawSecurityDescriptor(sddl);
+                byte[] buffer = new byte[rawSd.BinaryLength];
+                rawSd.GetBinaryForm(buffer, 0);
+                return buffer;
+            }
+            catch
+            {
+                var rawSd = new RawSecurityDescriptor("O:BAG:BAD:(A;;FA;;;OW)(A;;FA;;;BA)");
+                byte[] buffer = new byte[rawSd.BinaryLength];
+                rawSd.GetBinaryForm(buffer, 0);
+                return buffer;
+            }
         }
 
         public VirtualFileSystem(IStorageProvider storage, string? stagingDir = null)
@@ -34,6 +56,45 @@ namespace OpenMount.Core.FileSystem
             {
                 Directory.CreateDirectory(_stagingDir);
             }
+        }
+
+        private VirtualFileNode AcquireNode(string path, bool isDir, long size = 0, FileAttributes attrs = FileAttributes.Normal)
+        {
+            string clean = NormalizePath(path);
+            return _activeNodes.AddOrUpdate(
+                clean,
+                p => new VirtualFileNode(p, isDir, size, attrs) { OpenCount = 1 },
+                (p, existing) =>
+                {
+                    lock (existing.LockObj)
+                    {
+                        existing.OpenCount++;
+                        if (size > 0 && !existing.IsDirectory)
+                        {
+                            existing.Size = size;
+                        }
+                        return existing;
+                    }
+                });
+        }
+
+        private void ReleaseNode(VirtualFileNode node)
+        {
+            lock (node.LockObj)
+            {
+                node.OpenCount--;
+                if (node.OpenCount <= 0)
+                {
+                    _activeNodes.TryRemove(node.Path, out _);
+                }
+            }
+        }
+
+        private static string NormalizePath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return "\\";
+            string clean = path.Replace('/', '\\');
+            return clean.StartsWith("\\") ? clean : "\\" + clean;
         }
 
         public override int Init(object host)
@@ -133,7 +194,7 @@ namespace OpenMount.Core.FileSystem
                 try
                 {
                     _storage.CreateDirectoryAsync(fileName).GetAwaiter().GetResult();
-                    var node = new VirtualFileNode(fileName, true, 0, (FileAttributes)fileAttributes);
+                    var node = AcquireNode(fileName, true, 0, (FileAttributes)fileAttributes);
                     var desc = new VirtualFileDesc(node, grantedAccess);
                     fileNode = node;
                     fileDesc = desc;
@@ -149,7 +210,7 @@ namespace OpenMount.Core.FileSystem
             {
                 try
                 {
-                    var node = new VirtualFileNode(fileName, false, 0, (FileAttributes)fileAttributes);
+                    var node = AcquireNode(fileName, false, 0, (FileAttributes)fileAttributes);
                     var desc = new VirtualFileDesc(node, grantedAccess);
 
                     string tempPath = Path.Combine(_stagingDir, Guid.NewGuid().ToString("N") + ".tmp");
@@ -185,7 +246,7 @@ namespace OpenMount.Core.FileSystem
 
             if (string.IsNullOrEmpty(fileName) || fileName == "\\" || fileName == "/")
             {
-                var rootNode = new VirtualFileNode("\\", true);
+                var rootNode = AcquireNode("\\", true);
                 var rootDesc = new VirtualFileDesc(rootNode, grantedAccess);
                 fileNode = rootNode;
                 fileDesc = rootDesc;
@@ -203,7 +264,7 @@ namespace OpenMount.Core.FileSystem
 
                 if (meta.IsDirectory)
                 {
-                    var node = new VirtualFileNode(fileName, true, 0, meta.Attributes);
+                    var node = AcquireNode(fileName, true, 0, meta.Attributes);
                     node.CreationTime = meta.CreatedTime;
                     node.LastAccessTime = meta.LastAccessTime;
                     node.LastWriteTime = meta.LastModifiedTime;
@@ -216,7 +277,7 @@ namespace OpenMount.Core.FileSystem
                 }
                 else
                 {
-                    var node = new VirtualFileNode(fileName, false, meta.Size, meta.Attributes);
+                    var node = AcquireNode(fileName, false, meta.Size, meta.Attributes);
                     node.CreationTime = meta.CreatedTime;
                     node.LastAccessTime = meta.LastAccessTime;
                     node.LastWriteTime = meta.LastModifiedTime;
@@ -500,7 +561,17 @@ namespace OpenMount.Core.FileSystem
             try
             {
                 _storage.MoveAsync(fileName, newFileName).GetAwaiter().GetResult();
-                node.Path = newFileName;
+                string oldNorm = NormalizePath(fileName);
+                string newNorm = NormalizePath(newFileName);
+                if (_activeNodes.TryRemove(oldNorm, out var n))
+                {
+                    n.Path = newNorm;
+                    _activeNodes[newNorm] = n;
+                }
+                else
+                {
+                    node.Path = newNorm;
+                }
                 return STATUS_SUCCESS;
             }
             catch
@@ -529,6 +600,7 @@ namespace OpenMount.Core.FileSystem
                 }
                 catch { }
 
+                _activeNodes.TryRemove(NormalizePath(node.Path), out _);
                 desc.Dispose();
                 return;
             }
@@ -549,7 +621,9 @@ namespace OpenMount.Core.FileSystem
         public override void Close(object fileNode, object fileDesc)
         {
             var desc = (VirtualFileDesc)fileDesc;
+            var node = (VirtualFileNode)fileNode;
             desc.Dispose();
+            ReleaseNode(node);
         }
 
         public override int Flush(object fileNode, object fileDesc, out FileInfo fileInfo)

@@ -196,5 +196,25 @@ namespace OpenMount.Tests
             _vfs.Cleanup(node, desc, fileName, 0);
             _vfs.Close(node, desc);
         }
+
+        [Fact]
+        public void Test_ConcurrentHandles_ShareSameNode()
+        {
+            string fileName = "\\shared_node_test.txt";
+            _vfs.Create(fileName, 0, 0x40000000, 0, null!, 0, out var node1, out var desc1, out _, out _);
+            _vfs.Cleanup(node1, desc1, fileName, 0);
+
+            // Open twice concurrently
+            _vfs.Open(fileName, 0, 0x80000000, out var openNode1, out var openDesc1, out _, out _);
+            _vfs.Open(fileName, 0, 0x80000000, out var openNode2, out var openDesc2, out _, out _);
+
+            Assert.Same(openNode1, openNode2);
+            var vNode = (VirtualFileNode)openNode1;
+            Assert.True(vNode.OpenCount >= 2);
+
+            _vfs.Close(openNode1, openDesc1);
+            _vfs.Close(openNode2, openDesc2);
+            _vfs.Close(node1, desc1);
+        }
     }
 }
