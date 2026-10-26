@@ -29,6 +29,10 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Install WinFsp Driver on Runner
+        run: |
+          Start-Process msiexec.exe -ArgumentList '/i redist\winfsp.msi /qn /norestart' -Wait
+
       - name: Restore Dependencies
         run: dotnet restore OpenMount.sln
 
