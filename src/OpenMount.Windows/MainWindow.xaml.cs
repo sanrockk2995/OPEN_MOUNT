@@ -1,10 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Interop;
 using OpenMount.Core.Manager;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
@@ -15,7 +17,9 @@ namespace OpenMount.Windows
     {
         public ObservableCollection<DriveViewModel> Drives { get; } = new ObservableCollection<DriveViewModel>();
         private NotifyIcon? _trayIcon;
+        private ToolStripMenuItem? _trayAutoStartItem;
         private bool _isExplicitExit = false;
+        private bool _hasShownTrayBalloon = false;
 
         public MainWindow()
         {
@@ -23,20 +27,63 @@ namespace OpenMount.Windows
             LstDrives.ItemsSource = Drives;
 
             InitializeTrayIcon();
-            Loaded += MainWindow_Loaded;
+            ChkAutoStart.IsChecked = StartupHelper.IsRunOnStartup();
+
+            // Load drives and trigger auto-mount immediately on creation (works in background on boot)
+            _ = LoadDrivesAsync();
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var source = PresentationSource.FromVisual(this) as HwndSource;
+            source?.AddHook(WndProc);
+        }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == App.WM_SHOW_OPENMOUNT)
+            {
+                RestoreFromTray();
+                handled = true;
+            }
+            return IntPtr.Zero;
         }
 
         private void InitializeTrayIcon()
         {
+            Icon icon = LoadAppIcon();
+
             _trayIcon = new NotifyIcon
             {
                 Text = "OpenMount - Virtual Cloud Storage",
                 Visible = true,
-                Icon = SystemIcons.Application
+                Icon = icon
             };
 
             var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("Show OpenMount", null, (s, e) => RestoreFromTray());
+            var openItem = new ToolStripMenuItem("Open OpenMount", null, (s, e) => RestoreFromTray())
+            {
+                Font = new Font(contextMenu.Font, System.Drawing.FontStyle.Bold)
+            };
+            contextMenu.Items.Add(openItem);
+
+            _trayAutoStartItem = new ToolStripMenuItem("Run on Windows Startup", null, (s, e) =>
+            {
+                bool newState = !StartupHelper.IsRunOnStartup();
+                StartupHelper.SetRunOnStartup(newState);
+                if (_trayAutoStartItem != null)
+                {
+                    _trayAutoStartItem.Checked = newState;
+                }
+                ChkAutoStart.IsChecked = newState;
+            })
+            {
+                Checked = StartupHelper.IsRunOnStartup()
+            };
+            contextMenu.Items.Add(_trayAutoStartItem);
+
+            contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add("Mount All", null, async (s, e) => await MountAllDrivesAsync());
             contextMenu.Items.Add("Unmount All", null, async (s, e) => await UnmountAllDrivesAsync());
             contextMenu.Items.Add(new ToolStripSeparator());
@@ -46,9 +93,26 @@ namespace OpenMount.Windows
             _trayIcon.DoubleClick += (s, e) => RestoreFromTray();
         }
 
-        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        private System.Drawing.Icon LoadAppIcon()
         {
-            await LoadDrivesAsync();
+            try
+            {
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                if (File.Exists(iconPath))
+                {
+                    return new System.Drawing.Icon(iconPath);
+                }
+
+                string? exe = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exe) && File.Exists(exe))
+                {
+                    var extracted = System.Drawing.Icon.ExtractAssociatedIcon(exe);
+                    if (extracted != null) return extracted;
+                }
+            }
+            catch { }
+
+            return System.Drawing.SystemIcons.Application;
         }
 
         private async Task LoadDrivesAsync()
@@ -64,7 +128,8 @@ namespace OpenMount.Windows
 
                     if (cfg.AutoMount && !vm.IsMounted)
                     {
-                        _ = vm.ConnectAsync();
+                        // Background mount with retry for startup boot resiliency
+                        _ = MountWithRetryAsync(vm);
                     }
                 }
             }
@@ -74,6 +139,31 @@ namespace OpenMount.Windows
             }
 
             UpdateUIState();
+        }
+
+        private async Task MountWithRetryAsync(DriveViewModel vm, int maxRetries = 3)
+        {
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    await vm.ConnectAsync();
+                    if (vm.IsMounted)
+                    {
+                        UpdateUIState();
+                        return;
+                    }
+                }
+                catch
+                {
+                    // Network might still be initializing on boot
+                }
+
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(2500 * attempt);
+                }
+            }
         }
 
         private async Task SaveDrivesAsync()
@@ -88,6 +178,16 @@ namespace OpenMount.Windows
             PnlEmptyState.Visibility = Drives.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             int mountedCount = Drives.Count(d => d.IsMounted);
             TxtStatusSummary.Text = $"{Drives.Count} drive(s) configured | {mountedCount} active";
+        }
+
+        private void ChkAutoStart_Click(object sender, RoutedEventArgs e)
+        {
+            bool enable = ChkAutoStart.IsChecked == true;
+            StartupHelper.SetRunOnStartup(enable);
+            if (_trayAutoStartItem != null)
+            {
+                _trayAutoStartItem.Checked = enable;
+            }
         }
 
         private async void BtnAddDrive_Click(object sender, RoutedEventArgs e)
@@ -202,7 +302,9 @@ namespace OpenMount.Windows
         {
             Show();
             WindowState = WindowState.Normal;
+            ShowInTaskbar = true;
             Activate();
+            Focus();
         }
 
         private void Window_StateChanged(object sender, EventArgs e)
@@ -210,7 +312,7 @@ namespace OpenMount.Windows
             if (WindowState == WindowState.Minimized)
             {
                 Hide();
-                _trayIcon?.ShowBalloonTip(1500, "OpenMount", "OpenMount is running in the system tray.", ToolTipIcon.Info);
+                ShowInTaskbar = false;
             }
         }
 
@@ -220,7 +322,12 @@ namespace OpenMount.Windows
             {
                 e.Cancel = true;
                 Hide();
-                _trayIcon?.ShowBalloonTip(1500, "OpenMount", "Minimized to tray. Right-click tray icon to Exit.", ToolTipIcon.Info);
+                ShowInTaskbar = false;
+                if (!_hasShownTrayBalloon)
+                {
+                    _trayIcon?.ShowBalloonTip(2000, "OpenMount", "OpenMount continues running in the system tray. Right-click tray icon to Exit.", ToolTipIcon.Info);
+                    _hasShownTrayBalloon = true;
+                }
             }
         }
 

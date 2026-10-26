@@ -1,5 +1,13 @@
 # OpenMount: High-Performance Independent RaiDrive Alternative
 
+<p align="center">
+  <img src="assets/logo.png" alt="OpenMount Logo" width="128" height="128">
+  <br>
+  <b>Mount Cloud & Remote Storage as Native Windows Drives (WinFsp Kernel Driver)</b>
+  <br>
+  <i>Google Drive · AWS S3 / MinIO · WebDAV · SFTP · FTP/FTPS · pCloud · Local</i>
+</p>
+
 OpenMount is an independent, clean-room Windows application and virtual filesystem engine that mounts local directories, Google Drive, S3-compatible cloud storage (AWS S3, MinIO, Cloudflare R2, Backblaze B2), WebDAV (Nextcloud, ownCloud, Box, Synology, QNAP), SFTP over SSH, FTP / FTPS (TLS), and pCloud as native Windows drive letters (e.g. `Z:`, `G:`), backed by the **WinFsp** kernel driver.
 
 Developed using evidence-based reverse-engineering insights from commercial cloud storage mounters (RaiDrive) via the **REA (Reverse Engineer Anything)** methodology.
@@ -50,11 +58,13 @@ Developed using evidence-based reverse-engineering insights from commercial clou
 
 ### Production Security & Engineering Features
 1. **Multi-Protocol Cloud Provider Suite**: Native first-class support for Google Drive API v3 (OAuth2 PKCE), AWS S3/MinIO/Wasabi, WebDAV (Nextcloud, ownCloud, Box, Synology, QNAP), SFTP over SSH (SSH.NET), FTP/FTPS with TLS (FluentFTP), and pCloud (REST API with CDN Range streaming).
-2. **Per-User Least-Privilege Security**: Dynamic SDDL security descriptor restricted to the current user SID, Local System, and Builtin Administrators. Other non-elevated user accounts cannot tamper with the drive.
-3. **On-Demand Streaming (HTTP Range)**: Multi-gigabyte cloud media files stream instantly without downloading the whole file into RAM or disk cache.
-4. **Hardware-Backed Encryption (DPAPI)**: Cloud credentials, OAuth access tokens, refresh tokens, and drive profiles are encrypted via Windows Data Protection API (`ProtectedData.Protect` in `CurrentUser` scope). Zero plaintext secrets on disk.
-5. **Native Desktop UI & Tray**: Lightweight WPF dashboard with live status, connect/disconnect toggles, add-drive wizard (with tabs for all 7 storage protocols), and minimize-to-system-tray behavior.
-6. **Concurrent Inode Sharing & Resumable Uploads**: Thread-safe active node registry ensures multiple open handles synchronize cleanly; failed uploads quarantine uncommitted drafts in `%APPDATA%\OpenMount\unsaved`.
+2. **Background Tray Daemon & Auto-Start**: Runs quietly in the Windows notification tray (`NotifyIcon`) with zero taskbar clutter when minimized or closed. Optional Windows startup launch (`HKCU\...\Run`) with `--minimized` argument.
+3. **Resilient Boot Auto-Mounting**: Configured drives with Auto-Mount enabled connect automatically at startup, with exponential network retry to withstand Windows boot network delay.
+4. **Per-User Least-Privilege Security**: Dynamic SDDL security descriptor restricted to current user SID, Local System, and Builtin Administrators. Other non-elevated user accounts cannot tamper with the drive.
+5. **On-Demand Streaming (HTTP Range)**: Multi-gigabyte cloud media files stream instantly without downloading the whole file into RAM or disk cache.
+6. **Hardware-Backed Encryption (DPAPI)**: Cloud credentials, OAuth access tokens, refresh tokens, and drive profiles are encrypted via Windows Data Protection API (`ProtectedData.Protect` in `CurrentUser` scope). Zero plaintext secrets on disk.
+7. **Native Desktop UI & Tray**: Modern WPF dashboard with live status, connect/disconnect toggles, add-drive wizard (with tabs for all 7 storage protocols), and capacity meters.
+8. **Concurrent Inode Sharing & Resumable Uploads**: Thread-safe active node registry ensures multiple open handles synchronize cleanly; failed uploads quarantine uncommitted drafts in `%APPDATA%\OpenMount\unsaved`.
 
 ---
 

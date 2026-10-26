@@ -10,6 +10,7 @@ publish/
 
 # Local portable .NET SDK
 .dotnet/
+*.zip
 
 # Python cache
 __pycache__/

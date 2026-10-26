@@ -1,9 +1,11 @@
 <Window x:Class="OpenMount.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="OpenMount - Virtual Cloud Drive Manager" Height="580" Width="820"
-        WindowStartupLocation="CenterScreen" MinHeight="450" MinWidth="650"
+        Title="OpenMount - Virtual Cloud Drive Manager" Height="580" Width="840"
+        WindowStartupLocation="CenterScreen" MinHeight="450" MinWidth="680"
         Background="#F8F9FA" FontFamily="Segoe UI"
+        Icon="app.ico"
+        ShowInTaskbar="True"
         StateChanged="Window_StateChanged"
         Closing="Window_Closing">
     <Grid>
@@ -14,22 +16,28 @@
         </Grid.RowDefinitions>
 
         <!-- Top Header Bar -->
-        <Border Background="White" BorderBrush="#E9ECEF" BorderThickness="0,0,0,1" Padding="20,16">
+        <Border Background="White" BorderBrush="#E9ECEF" BorderThickness="0,0,0,1" Padding="20,14">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel>
-                    <TextBlock Text="OpenMount" FontSize="22" FontWeight="Bold" Foreground="#212529"/>
-                    <TextBlock Text="High-Performance Virtual Cloud Storage for Windows" FontSize="12" Foreground="#6C757D"/>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="app.png" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="OpenMount" FontSize="22" FontWeight="Bold" Foreground="#212529" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="High-Performance Virtual Cloud Storage for Windows" FontSize="12" Foreground="#6C757D" Margin="38,2,0,0"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="+ Add Drive" Click="BtnAddDrive_Click" Margin="0,0,8,0" Width="110"/>
+                    <CheckBox x:Name="ChkAutoStart" Content="Run on Windows Startup" VerticalAlignment="Center" 
+                              Margin="0,0,18,0" FontSize="12" FontWeight="Medium" Foreground="#495057"
+                              Click="ChkAutoStart_Click"/>
+                    <Button Content="+ Add Drive" Click="BtnAddDrive_Click" Margin="0,0,8,0" Width="105"/>
                     <Button Content="Mount All" Click="BtnMountAll_Click" Background="#28A745" Margin="0,0,8,0" Width="90"/>
-                    <Button Content="Unmount All" Click="BtnUnmountAll_Click" Background="#6C757D" Width="100"/>
+                    <Button Content="Unmount All" Click="BtnUnmountAll_Click" Background="#6C757D" Width="95"/>
                 </StackPanel>
             </Grid>
         </Border>
