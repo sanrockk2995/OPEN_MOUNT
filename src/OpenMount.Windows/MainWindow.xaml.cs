@@ -19,6 +19,7 @@ namespace OpenMount.Windows
         public ObservableCollection<DriveViewModel> Drives { get; } = new ObservableCollection<DriveViewModel>();
         private NotifyIcon? _trayIcon;
         private ToolStripMenuItem? _trayAutoStartItem;
+        private ToolStripMenuItem? _trayDarkModeItem;
         private bool _isExplicitExit = false;
         private bool _hasShownTrayBalloon = false;
 
@@ -30,6 +31,7 @@ namespace OpenMount.Windows
             InitializeTrayIcon();
             ChkAutoStart.IsChecked = StartupHelper.IsRunOnStartup();
             UpdateWinFspState();
+            UpdateThemeToggleUI();
 
             // Load drives and trigger auto-mount immediately on creation (works in background on boot)
             _ = LoadDrivesAsync();
@@ -84,6 +86,16 @@ namespace OpenMount.Windows
                 Checked = StartupHelper.IsRunOnStartup()
             };
             contextMenu.Items.Add(_trayAutoStartItem);
+
+            _trayDarkModeItem = new ToolStripMenuItem("Dark Mode", null, (s, e) =>
+            {
+                ThemeManager.ToggleTheme();
+                UpdateThemeToggleUI();
+            })
+            {
+                Checked = ThemeManager.IsDarkMode
+            };
+            contextMenu.Items.Add(_trayDarkModeItem);
 
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add("Mount All", null, async (s, e) => await MountAllDrivesAsync());
@@ -261,6 +273,24 @@ namespace OpenMount.Windows
             if (_trayAutoStartItem != null)
             {
                 _trayAutoStartItem.Checked = enable;
+            }
+        }
+
+        private void BtnThemeToggle_Click(object sender, RoutedEventArgs e)
+        {
+            ThemeManager.ToggleTheme();
+            UpdateThemeToggleUI();
+        }
+
+        private void UpdateThemeToggleUI()
+        {
+            if (BtnThemeToggle != null)
+            {
+                BtnThemeToggle.Content = ThemeManager.IsDarkMode ? "☀️ Light Mode" : "🌙 Dark Mode";
+            }
+            if (_trayDarkModeItem != null)
+            {
+                _trayDarkModeItem.Checked = ThemeManager.IsDarkMode;
             }
         }
 

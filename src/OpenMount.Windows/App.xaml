@@ -7,13 +7,41 @@
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
 
+        <!-- Fallback Default Palette Brushes (Replaced dynamically by ThemeManager) -->
+        <SolidColorBrush x:Key="BrushWindowBg" Color="#F4F6F9"/>
+        <SolidColorBrush x:Key="BrushHeaderBg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BrushCardBg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BrushCardHover" Color="#F8F9FA"/>
+        <SolidColorBrush x:Key="BrushCardBorder" Color="#E4E6EB"/>
+        <SolidColorBrush x:Key="BrushSubtleBorder" Color="#E9ECEF"/>
+        <SolidColorBrush x:Key="BrushTextPrimary" Color="#212529"/>
+        <SolidColorBrush x:Key="BrushTextSecondary" Color="#6C757D"/>
+        <SolidColorBrush x:Key="BrushTextMuted" Color="#868E96"/>
+        <SolidColorBrush x:Key="BrushDriveBadgeBg" Color="#E7F1FF"/>
+        <SolidColorBrush x:Key="BrushDriveBadgeFg" Color="#0078D4"/>
+        <SolidColorBrush x:Key="BrushTagBg" Color="#E9ECEF"/>
+        <SolidColorBrush x:Key="BrushTagFg" Color="#495057"/>
+        <SolidColorBrush x:Key="BrushProgressTrack" Color="#E9ECEF"/>
+        <SolidColorBrush x:Key="BrushInputBg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BrushInputBorder" Color="#CED4DA"/>
+        <SolidColorBrush x:Key="BrushInputFg" Color="#212529"/>
+        <SolidColorBrush x:Key="BrushSecondaryBtnBg" Color="#E9ECEF"/>
+        <SolidColorBrush x:Key="BrushSecondaryBtnFg" Color="#333333"/>
+        <SolidColorBrush x:Key="BrushSecondaryBtnHover" Color="#DEE2E6"/>
+        <SolidColorBrush x:Key="BrushDangerBtnSubtleBg" Color="#FEE2E2"/>
+        <SolidColorBrush x:Key="BrushDangerBtnSubtleFg" Color="#DC3545"/>
+        <SolidColorBrush x:Key="BrushDangerBtnSubtleHover" Color="#FCD0D0"/>
+        <SolidColorBrush x:Key="BrushStatusBarBg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BrushThemeToggleBg" Color="#E9ECEF"/>
+        <SolidColorBrush x:Key="BrushThemeToggleFg" Color="#4B5563"/>
+
         <!-- Modern Windows Flat Styles -->
         <Style TargetType="Button">
             <Setter Property="Background" Value="#0078D4"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Padding" Value="10,5"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -24,14 +52,90 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#106EBE"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.88"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#005A9E"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.75"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Background" Value="#CCCCCC"/>
-                                <Setter Property="Foreground" Value="#666666"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Secondary Neutral Button Style -->
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{DynamicResource BrushSecondaryBtnBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushSecondaryBtnFg}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource BrushSecondaryBtnHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Subtle Danger Button Style (Remove) -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerBtnSubtleBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerBtnSubtleFg}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource BrushDangerBtnSubtleHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Theme Toggle Button Style -->
+        <Style x:Key="ThemeToggleButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{DynamicResource BrushThemeToggleBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushThemeToggleFg}"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="14" Padding="{TemplateBinding Padding}" BorderBrush="{DynamicResource BrushSubtleBorder}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.7"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

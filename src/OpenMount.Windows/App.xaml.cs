@@ -36,6 +36,8 @@ namespace OpenMount.Windows
                 return;
             }
 
+            ThemeManager.Initialize();
+
             bool startMinimized = e.Args.Any(a =>
                 string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(a, "-m", StringComparison.OrdinalIgnoreCase) ||

@@ -3,7 +3,28 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Configure Drive - OpenMount" Height="620" Width="520"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="#F3F3F3" FontFamily="Segoe UI">
+        Icon="app.ico"
+        Background="{DynamicResource BrushWindowBg}" FontFamily="Segoe UI">
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource BrushInputBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushInputFg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
+            <Setter Property="Padding" Value="4,2"/>
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="{DynamicResource BrushInputBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushInputFg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
+            <Setter Property="Padding" Value="4,2"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        </Style>
+    </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -13,7 +34,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock x:Name="TxtHeader" Text="Add New Drive" FontSize="20" FontWeight="SemiBold" Foreground="#1E1E1E" Margin="0,0,0,16"/>
+        <TextBlock x:Name="TxtHeader" Text="Add New Drive" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,16"/>
 
         <!-- Common Settings -->
         <Grid Grid.Row="1" Margin="0,0,0,16">
@@ -37,7 +58,7 @@
         </Grid>
 
         <!-- Provider Tabs -->
-        <TabControl x:Name="TabProviders" Grid.Row="2" Background="White" BorderBrush="#E0E0E0">
+        <TabControl x:Name="TabProviders" Grid.Row="2" Background="{DynamicResource BrushCardBg}" BorderBrush="{DynamicResource BrushCardBorder}">
             <!-- Local Tab -->
             <TabItem Header="Local Folder" x:Name="TabLocal">
                 <StackPanel Margin="16">
@@ -206,8 +227,8 @@
 
         <!-- Actions -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Save" Width="90" Click="BtnSave_Click" Margin="0,0,10,0"/>
-            <Button Content="Cancel" Width="90" Background="#E0E0E0" Foreground="#333333" Click="BtnCancel_Click"/>
+            <Button Content="Save" MinWidth="95" Padding="12,6" Click="BtnSave_Click" Margin="0,0,10,0"/>
+            <Button Content="Cancel" MinWidth="95" Padding="12,6" Style="{StaticResource SecondaryButton}" Click="BtnCancel_Click"/>
         </StackPanel>
     </Grid>
 </Window>

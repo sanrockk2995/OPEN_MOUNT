@@ -1,9 +1,9 @@
 <Window x:Class="OpenMount.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="OpenMount - Virtual Cloud Drive Manager" Height="580" Width="840"
-        WindowStartupLocation="CenterScreen" MinHeight="450" MinWidth="680"
-        Background="#F8F9FA" FontFamily="Segoe UI"
+        Title="OpenMount - Virtual Cloud Drive Manager" Height="580" Width="870"
+        WindowStartupLocation="CenterScreen" MinHeight="450" MinWidth="700"
+        Background="{DynamicResource BrushWindowBg}" FontFamily="Segoe UI"
         Icon="app.ico"
         ShowInTaskbar="True"
         StateChanged="Window_StateChanged"
@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <!-- Top Header Bar -->
-        <Border Background="White" BorderBrush="#E9ECEF" BorderThickness="0,0,0,1" Padding="20,14">
+        <Border Background="{DynamicResource BrushHeaderBg}" BorderBrush="{DynamicResource BrushSubtleBorder}" BorderThickness="0,0,0,1" Padding="20,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -26,18 +26,20 @@
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Image Source="app.png" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="OpenMount" FontSize="22" FontWeight="Bold" Foreground="#212529" VerticalAlignment="Center"/>
+                        <TextBlock Text="OpenMount" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="High-Performance Virtual Cloud Storage for Windows" FontSize="12" Foreground="#6C757D" Margin="38,2,0,0"/>
+                    <TextBlock Text="High-Performance Virtual Cloud Storage for Windows" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" Margin="38,2,0,0"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox x:Name="ChkAutoStart" Content="Run on Windows Startup" VerticalAlignment="Center" 
-                              Margin="0,0,18,0" FontSize="12" FontWeight="Medium" Foreground="#495057"
+                              Margin="0,0,16,0" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource BrushTextSecondary}"
                               Click="ChkAutoStart_Click"/>
-                    <Button Content="+ Add Drive" Click="BtnAddDrive_Click" Margin="0,0,8,0" Width="105"/>
-                    <Button Content="Mount All" Click="BtnMountAll_Click" Background="#28A745" Margin="0,0,8,0" Width="90"/>
-                    <Button Content="Unmount All" Click="BtnUnmountAll_Click" Background="#6C757D" Width="95"/>
+                    <Button x:Name="BtnThemeToggle" Content="🌙 Dark Mode" Style="{StaticResource ThemeToggleButton}" 
+                            Click="BtnThemeToggle_Click" Margin="0,0,14,0" MinWidth="110" Padding="10,5"/>
+                    <Button Content="+ Add Drive" Click="BtnAddDrive_Click" Margin="0,0,8,0" MinWidth="110" Padding="12,6"/>
+                    <Button Content="Mount All" Click="BtnMountAll_Click" Background="#28A745" Margin="0,0,8,0" MinWidth="95" Padding="12,6"/>
+                    <Button Content="Unmount All" Click="BtnUnmountAll_Click" Background="#6C757D" MinWidth="110" Padding="12,6"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -64,175 +66,178 @@
             </Border>
 
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
-            <StackPanel>
-                <!-- Empty state placeholder -->
-                <Border x:Name="PnlEmptyState" Background="White" CornerRadius="8" BorderBrush="#E9ECEF" BorderThickness="1" 
-                        Padding="40" Margin="0,20,0,0" HorizontalAlignment="Center" Width="550" Visibility="Collapsed">
-                    <StackPanel HorizontalAlignment="Center">
-                        <TextBlock Text="No Drives Configured" FontSize="18" FontWeight="SemiBold" Foreground="#495057" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Mount your local folders, Google Drive, or S3/MinIO buckets as native Windows drive letters." 
-                                   TextWrapping="Wrap" TextAlignment="Center" Foreground="#6C757D" Margin="0,8,0,20" FontSize="13"/>
-                        <Button Content="+ Add Your First Drive" Click="BtnAddDrive_Click" HorizontalAlignment="Center" Width="180"/>
-                    </StackPanel>
-                </Border>
+                <StackPanel>
+                    <!-- Empty state placeholder -->
+                    <Border x:Name="PnlEmptyState" Background="{DynamicResource BrushCardBg}" CornerRadius="8" 
+                            BorderBrush="{DynamicResource BrushCardBorder}" BorderThickness="1" 
+                            Padding="40" Margin="0,20,0,0" HorizontalAlignment="Center" Width="550" Visibility="Collapsed">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="No Drives Configured" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Mount your local folders, Google Drive, or S3/MinIO buckets as native Windows drive letters." 
+                                       TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,8,0,20" FontSize="13"/>
+                            <Button Content="+ Add Your First Drive" Click="BtnAddDrive_Click" HorizontalAlignment="Center" MinWidth="180" Padding="14,8"/>
+                        </StackPanel>
+                    </Border>
 
-                <!-- Drives Items Control -->
-                <ItemsControl x:Name="LstDrives">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="White" CornerRadius="8" BorderBrush="#E9ECEF" BorderThickness="1" Margin="0,0,0,12" Padding="16">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                    <!-- Drives Items Control -->
+                    <ItemsControl x:Name="LstDrives">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource BrushCardBg}" CornerRadius="8" 
+                                        BorderBrush="{DynamicResource BrushCardBorder}" BorderThickness="1" 
+                                        Margin="0,0,0,12" Padding="16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
 
-                                    <!-- Drive Letter Badge -->
-                                    <Border Background="#E7F1FF" CornerRadius="6" Width="54" Height="54" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DriveLetter}" FontWeight="Bold" FontSize="20" Foreground="#0078D4" 
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
+                                        <!-- Drive Letter Badge -->
+                                        <Border Background="{DynamicResource BrushDriveBadgeBg}" CornerRadius="6" Width="54" Height="54" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DriveLetter}" FontWeight="Bold" FontSize="20" Foreground="{DynamicResource BrushDriveBadgeFg}" 
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
 
-                                    <!-- Details -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Label}" FontSize="16" FontWeight="SemiBold" Foreground="#212529" Margin="0,0,10,0"/>
-                                            <Border Background="#E9ECEF" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding ProviderDisplay}" FontSize="11" Foreground="#495057"/>
-                                            </Border>
+                                        <!-- Details -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,14,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Label}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,10,0"/>
+                                                <Border Background="{DynamicResource BrushTagBg}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ProviderDisplay}" FontSize="11" Foreground="{DynamicResource BrushTagFg}"/>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding ProviderDetails}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Status: " FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                                <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Mounted">
+                                                                    <Setter Property="Foreground" Value="#28A745"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Connecting...">
+                                                                    <Setter Property="Foreground" Value="#FD7E14"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Error">
+                                                                    <Setter Property="Foreground" Value="#DC3545"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <!-- Storage Capacity / Usage (RaiDrive style) -->
+                                            <StackPanel Margin="0,6,10,0" Visibility="{Binding HasCapacity, Converter={StaticResource BoolToVisConverter}}">
+                                                <Grid Margin="0,0,0,3">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                                        <TextBlock Text="Storage: " FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                                        <TextBlock Text="{Binding CapacityText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding CapacityDetails}" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Right"/>
+                                                </Grid>
+
+                                                <Grid Height="6">
+                                                    <Border Background="{DynamicResource BrushProgressTrack}" CornerRadius="3"/>
+                                                    <ProgressBar Value="{Binding UsedPercentage, Mode=OneWay}" Maximum="100" Minimum="0" 
+                                                                 Height="6" BorderThickness="0" Background="Transparent"
+                                                                 Foreground="{Binding CapacityBarColor}"/>
+                                                </Grid>
+                                            </StackPanel>
                                         </StackPanel>
-                                        <TextBlock Text="{Binding ProviderDetails}" FontSize="12" Foreground="#6C757D" Margin="0,4,0,4"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Status: " FontSize="12" FontWeight="SemiBold" Foreground="#495057"/>
-                                            <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="#6C757D"/>
+
+                                        <!-- Actions -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- Connect Button -->
+                                            <Button Content="Connect" MinWidth="85" Padding="10,5" Margin="0,0,8,0" Click="BtnConnect_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Status}" Value="Mounted">
-                                                                <Setter Property="Foreground" Value="#28A745"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Status}" Value="Connecting...">
-                                                                <Setter Property="Foreground" Value="#FD7E14"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Status}" Value="Error">
-                                                                <Setter Property="Foreground" Value="#DC3545"/>
+                                                            <DataTrigger Binding="{Binding IsMounted}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <!-- Disconnect Button -->
+                                            <Button Content="Disconnect" MinWidth="105" Padding="10,5" Background="#DC3545" Margin="0,0,8,0" Click="BtnDisconnect_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMounted}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <!-- Open in Explorer Button -->
+                                            <Button Content="Open" MinWidth="65" Padding="10,5" Background="#17A2B8" Margin="0,0,8,0" Click="BtnOpen_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMounted}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <!-- Edit Button -->
+                                            <Button Content="Edit" MinWidth="65" Padding="10,5" Margin="0,0,8,0" Click="BtnEdit_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+                                                        <Setter Property="IsEnabled" Value="True"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMounted}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <!-- Delete Button -->
+                                            <Button Content="Remove" MinWidth="80" Padding="10,5" Click="BtnRemove_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource DangerButton}">
+                                                        <Setter Property="IsEnabled" Value="True"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMounted}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
                                         </StackPanel>
-
-                                        <!-- Storage Capacity / Usage (RaiDrive style) -->
-                                        <StackPanel Margin="0,6,20,0" Visibility="{Binding HasCapacity, Converter={StaticResource BoolToVisConverter}}">
-                                            <Grid Margin="0,0,0,3">
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                                    <TextBlock Text="Storage: " FontSize="11" FontWeight="SemiBold" Foreground="#495057"/>
-                                                    <TextBlock Text="{Binding CapacityText}" FontSize="11" FontWeight="SemiBold" Foreground="#212529"/>
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding CapacityDetails}" FontSize="11" Foreground="#6C757D" HorizontalAlignment="Right"/>
-                                            </Grid>
-
-                                            <Grid Height="6">
-                                                <Border Background="#E9ECEF" CornerRadius="3"/>
-                                                <ProgressBar Value="{Binding UsedPercentage, Mode=OneWay}" Maximum="100" Minimum="0" 
-                                                             Height="6" BorderThickness="0" Background="Transparent"
-                                                             Foreground="{Binding CapacityBarColor}"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <!-- Actions -->
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <!-- Connect Button -->
-                                        <Button Content="Connect" Width="85" Margin="0,0,6,0" Click="BtnConnect_Click">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMounted}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-
-                                        <!-- Disconnect Button -->
-                                        <Button Content="Disconnect" Width="90" Background="#DC3545" Margin="0,0,6,0" Click="BtnDisconnect_Click">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMounted}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-
-                                        <!-- Open in Explorer Button -->
-                                        <Button Content="Open" Width="65" Background="#17A2B8" Margin="0,0,6,0" Click="BtnOpen_Click">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMounted}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-
-                                        <!-- Edit Button -->
-                                        <Button Content="Edit" Width="60" Background="#E9ECEF" Foreground="#333333" Margin="0,0,6,0" Click="BtnEdit_Click">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="IsEnabled" Value="True"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMounted}" Value="True">
-                                                            <Setter Property="IsEnabled" Value="False"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-
-                                        <!-- Delete Button -->
-                                        <Button Content="Remove" Width="70" Background="#E9ECEF" Foreground="#DC3545" Click="BtnRemove_Click">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="IsEnabled" Value="True"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMounted}" Value="True">
-                                                            <Setter Property="IsEnabled" Value="False"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </ScrollViewer>
         </Grid>
 
         <!-- Bottom Status Bar -->
-        <Border Grid.Row="2" Background="White" BorderBrush="#E9ECEF" BorderThickness="0,1,0,0" Padding="16,0">
+        <Border Grid.Row="2" Background="{DynamicResource BrushStatusBarBg}" BorderBrush="{DynamicResource BrushSubtleBorder}" BorderThickness="0,1,0,0" Padding="16,0">
             <Grid VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="TxtStatusSummary" Text="Ready" FontSize="11" Foreground="#6C757D"/>
+                <TextBlock x:Name="TxtStatusSummary" Text="Ready" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="TxtWinFspStatus" Text="WinFsp Virtual Filesystem Active" FontSize="11" Foreground="#28A745" VerticalAlignment="Center"/>
                     <Button x:Name="BtnStatusInstallWinFsp" Content="Install WinFsp" Background="#DC3545" Foreground="White" 
