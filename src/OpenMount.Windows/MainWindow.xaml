@@ -43,7 +43,27 @@
         </Border>
 
         <!-- Main Content Area: Drives List -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20">
+        <Grid Grid.Row="1">
+            <!-- WinFsp Missing Banner -->
+            <Border x:Name="PnlWinFspMissingBanner" VerticalAlignment="Top" Panel.ZIndex="10"
+                    Background="#FFF3CD" BorderBrush="#FFEEBA" BorderThickness="0,0,0,1" 
+                    Padding="20,10" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="⚠ " FontSize="14" Foreground="#856404" FontWeight="Bold"/>
+                        <TextBlock Text="WinFsp kernel driver is required to mount virtual cloud drives. Click to install driver." 
+                                   FontSize="12" Foreground="#856404" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Install WinFsp Now" Background="#856404" Foreground="White" 
+                            FontSize="11" Padding="12,4" Click="BtnInstallWinFsp_Click"/>
+                </Grid>
+            </Border>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
             <StackPanel>
                 <!-- Empty state placeholder -->
                 <Border x:Name="PnlEmptyState" Background="White" CornerRadius="8" BorderBrush="#E9ECEF" BorderThickness="1" 
@@ -202,7 +222,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
-        </ScrollViewer>
+            </ScrollViewer>
+        </Grid>
 
         <!-- Bottom Status Bar -->
         <Border Grid.Row="2" Background="White" BorderBrush="#E9ECEF" BorderThickness="0,1,0,0" Padding="16,0">
@@ -212,7 +233,11 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TxtStatusSummary" Text="Ready" FontSize="11" Foreground="#6C757D"/>
-                <TextBlock Grid.Column="1" Text="WinFsp Virtual Filesystem Active" FontSize="11" Foreground="#28A745"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtWinFspStatus" Text="WinFsp Virtual Filesystem Active" FontSize="11" Foreground="#28A745" VerticalAlignment="Center"/>
+                    <Button x:Name="BtnStatusInstallWinFsp" Content="Install WinFsp" Background="#DC3545" Foreground="White" 
+                            FontSize="10" Padding="8,2" Margin="8,0,0,0" Visibility="Collapsed" Click="BtnInstallWinFsp_Click"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

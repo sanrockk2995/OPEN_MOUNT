@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
+using OpenMount.Core.FileSystem;
 using OpenMount.Core.Manager;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
@@ -28,6 +29,7 @@ namespace OpenMount.Windows
 
             InitializeTrayIcon();
             ChkAutoStart.IsChecked = StartupHelper.IsRunOnStartup();
+            UpdateWinFspState();
 
             // Load drives and trigger auto-mount immediately on creation (works in background on boot)
             _ = LoadDrivesAsync();
@@ -141,8 +143,80 @@ namespace OpenMount.Windows
             UpdateUIState();
         }
 
+        private void UpdateWinFspState()
+        {
+            bool installed = WinFspInstaller.IsInstalled();
+            if (installed)
+            {
+                PnlWinFspMissingBanner.Visibility = Visibility.Collapsed;
+                TxtWinFspStatus.Text = "WinFsp Virtual Filesystem Active";
+                TxtWinFspStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 167, 69));
+                BtnStatusInstallWinFsp.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                PnlWinFspMissingBanner.Visibility = Visibility.Visible;
+                TxtWinFspStatus.Text = "WinFsp Driver Missing";
+                TxtWinFspStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 53, 69));
+                BtnStatusInstallWinFsp.Visibility = Visibility.Visible;
+            }
+        }
+
+        private async void BtnInstallWinFsp_Click(object sender, RoutedEventArgs e)
+        {
+            await EnsureWinFspInstalledAsync();
+        }
+
+        public async Task<bool> EnsureWinFspInstalledAsync()
+        {
+            if (WinFspInstaller.IsInstalled())
+            {
+                UpdateWinFspState();
+                return true;
+            }
+
+            try
+            {
+                TxtStatusSummary.Text = "Installing WinFsp kernel driver...";
+                var (success, message) = await WinFspInstaller.InstallAsync(silent: false);
+                UpdateWinFspState();
+
+                if (success)
+                {
+                    MessageBox.Show(
+                        "WinFsp has been installed successfully. Virtual cloud drive mounting is now active.",
+                        "OpenMount",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+
+                    await MountAllDrivesAsync();
+                    return true;
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"WinFsp installation did not complete:\n{message}",
+                        "OpenMount",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error installing WinFsp:\n{ex.Message}", "OpenMount", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+            finally
+            {
+                UpdateUIState();
+            }
+        }
+
         private async Task MountWithRetryAsync(DriveViewModel vm, int maxRetries = 3)
         {
+            if (!WinFspInstaller.IsInstalled()) return;
+
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
@@ -248,6 +322,25 @@ namespace OpenMount.Windows
         {
             if (sender is System.Windows.Controls.Button btn && btn.DataContext is DriveViewModel vm)
             {
+                if (!WinFspInstaller.IsInstalled())
+                {
+                    var confirm = MessageBox.Show(
+                        "WinFsp kernel driver is required to mount this virtual drive.\nWould you like OpenMount to install WinFsp now?",
+                        "WinFsp Required",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (confirm == MessageBoxResult.Yes)
+                    {
+                        bool installed = await EnsureWinFspInstalledAsync();
+                        if (!installed) return;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+
                 await vm.ConnectAsync();
                 UpdateUIState();
             }
@@ -272,6 +365,25 @@ namespace OpenMount.Windows
 
         private async void BtnMountAll_Click(object sender, RoutedEventArgs e)
         {
+            if (!WinFspInstaller.IsInstalled())
+            {
+                var confirm = MessageBox.Show(
+                    "WinFsp kernel driver is required to mount virtual drives.\nWould you like OpenMount to install WinFsp now?",
+                    "WinFsp Required",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirm == MessageBoxResult.Yes)
+                {
+                    bool installed = await EnsureWinFspInstalledAsync();
+                    if (!installed) return;
+                }
+                else
+                {
+                    return;
+                }
+            }
+
             await MountAllDrivesAsync();
         }
 

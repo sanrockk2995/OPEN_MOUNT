@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\redist\winfsp.msi" Condition="Exists('..\..\redist\winfsp.msi')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>redist\winfsp.msi</TargetPath>
+    </None>
     <ProjectReference Include="..\OpenMount.Core\OpenMount.Core.csproj" />
   </ItemGroup>
 

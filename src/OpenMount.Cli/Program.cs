@@ -181,6 +181,26 @@ Examples:
 
         private static async Task<int> HandleMountAsync(Dictionary<string, string> opts)
         {
+            if (!OpenMount.Core.FileSystem.WinFspInstaller.IsInstalled())
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[!] WinFsp kernel driver is required to mount virtual drives but is not installed.");
+                Console.WriteLine("[*] Automatically initiating WinFsp installation (please accept the UAC prompt)...");
+                Console.ResetColor();
+
+                var (success, msg) = await OpenMount.Core.FileSystem.WinFspInstaller.InstallAsync(silent: false);
+                if (!success)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Error.WriteLine($"[Error] Failed to install WinFsp: {msg}");
+                    Console.ResetColor();
+                    return 1;
+                }
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[✓] WinFsp installed successfully!");
+                Console.ResetColor();
+            }
+
             if (!opts.TryGetValue("letter", out var letter) || string.IsNullOrWhiteSpace(letter))
             {
                 Console.Error.WriteLine("[Error] Drive letter is required (-l or --letter, e.g. Z:)");

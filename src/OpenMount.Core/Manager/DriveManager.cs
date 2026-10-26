@@ -104,6 +104,11 @@ namespace OpenMount.Core.Manager
                 throw new IOException($"Drive letter {driveLetter} is already in use by the system or another device.");
             }
 
+            if (!WinFspInstaller.IsInstalled())
+            {
+                throw new InvalidOperationException("WinFsp kernel driver is not installed. Please install WinFsp to enable virtual filesystem mounting.");
+            }
+
             await provider.InitializeAsync(ct).ConfigureAwait(false);
 
             var vfs = new VirtualFileSystem(provider, config.StagingPath);

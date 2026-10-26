@@ -58,13 +58,14 @@ Developed using evidence-based reverse-engineering insights from commercial clou
 
 ### Production Security & Engineering Features
 1. **Multi-Protocol Cloud Provider Suite**: Native first-class support for Google Drive API v3 (OAuth2 PKCE), AWS S3/MinIO/Wasabi, WebDAV (Nextcloud, ownCloud, Box, Synology, QNAP), SFTP over SSH (SSH.NET), FTP/FTPS with TLS (FluentFTP), and pCloud (REST API with CDN Range streaming).
-2. **Background Tray Daemon & Auto-Start**: Runs quietly in the Windows notification tray (`NotifyIcon`) with zero taskbar clutter when minimized or closed. Optional Windows startup launch (`HKCU\...\Run`) with `--minimized` argument.
-3. **Resilient Boot Auto-Mounting**: Configured drives with Auto-Mount enabled connect automatically at startup, with exponential network retry to withstand Windows boot network delay.
-4. **Per-User Least-Privilege Security**: Dynamic SDDL security descriptor restricted to current user SID, Local System, and Builtin Administrators. Other non-elevated user accounts cannot tamper with the drive.
-5. **On-Demand Streaming (HTTP Range)**: Multi-gigabyte cloud media files stream instantly without downloading the whole file into RAM or disk cache.
-6. **Hardware-Backed Encryption (DPAPI)**: Cloud credentials, OAuth access tokens, refresh tokens, and drive profiles are encrypted via Windows Data Protection API (`ProtectedData.Protect` in `CurrentUser` scope). Zero plaintext secrets on disk.
-7. **Native Desktop UI & Tray**: Modern WPF dashboard with live status, connect/disconnect toggles, add-drive wizard (with tabs for all 7 storage protocols), and capacity meters.
-8. **Concurrent Inode Sharing & Resumable Uploads**: Thread-safe active node registry ensures multiple open handles synchronize cleanly; failed uploads quarantine uncommitted drafts in `%APPDATA%\OpenMount\unsaved`.
+2. **Integrated WinFsp Driver Auto-Installer**: Bundled official signed WinFsp installer (`redist/winfsp.msi`). OpenMount automatically detects missing driver state and installs WinFsp silently with UAC elevation directly inside the app — zero manual driver downloading required.
+3. **Background Tray Daemon & Auto-Start**: Runs quietly in the Windows notification tray (`NotifyIcon`) with zero taskbar clutter when minimized or closed. Optional Windows startup launch (`HKCU\...\Run`) with `--minimized` argument.
+4. **Resilient Boot Auto-Mounting**: Configured drives with Auto-Mount enabled connect automatically at startup, with exponential network retry to withstand Windows boot network delay.
+5. **Per-User Least-Privilege Security**: Dynamic SDDL security descriptor restricted to current user SID, Local System, and Builtin Administrators. Other non-elevated user accounts cannot tamper with the drive.
+6. **On-Demand Streaming (HTTP Range)**: Multi-gigabyte cloud media files stream instantly without downloading the whole file into RAM or disk cache.
+7. **Hardware-Backed Encryption (DPAPI)**: Cloud credentials, OAuth access tokens, refresh tokens, and drive profiles are encrypted via Windows Data Protection API (`ProtectedData.Protect` in `CurrentUser` scope). Zero plaintext secrets on disk.
+8. **Native Desktop UI & Tray**: Modern WPF dashboard with live status, connect/disconnect toggles, add-drive wizard (with tabs for all 7 storage protocols), and capacity meters.
+9. **Concurrent Inode Sharing & Resumable Uploads**: Thread-safe active node registry ensures multiple open handles synchronize cleanly; failed uploads quarantine uncommitted drafts in `%APPDATA%\OpenMount\unsaved`.
 
 ---
 
@@ -74,6 +75,8 @@ Developed using evidence-based reverse-engineering insights from commercial clou
 D:\AI\MOUT\
 ├── OpenMount.sln                     # Visual Studio / .NET 8.0 Solution
 ├── README.md
+├── redist\                           # Bundled redistributable installers
+│   └── winfsp.msi                    # Official signed WinFsp kernel runtime installer
 ├── lib\                              # Local WinFsp MSIL assemblies
 │   ├── winfsp-msil.dll
 │   └── winfsp-msil.xml
