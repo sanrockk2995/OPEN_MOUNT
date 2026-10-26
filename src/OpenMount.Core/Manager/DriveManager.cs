@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Fsp;
+using OpenMount.Core.Cache;
 using OpenMount.Core.FileSystem;
 using OpenMount.Core.Storage;
 
@@ -111,7 +112,8 @@ namespace OpenMount.Core.Manager
 
             await provider.InitializeAsync(ct).ConfigureAwait(false);
 
-            var vfs = new VirtualFileSystem(provider, config.StagingPath);
+            var cacheManager = new FileCacheManager(driveLetter.TrimEnd(':'), config.StagingPath);
+            var vfs = new VirtualFileSystem(provider, config.StagingPath, cacheManager);
             var host = new FileSystemHost(vfs);
 
             int status = host.Mount(driveLetter, null, false, 0);
