@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -27,16 +28,60 @@ namespace OpenMount.Windows
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            _instanceMutex = new Mutex(true, MutexName, out bool isNewInstance);
-            if (!isNewInstance)
+            // Global crash protection & error logging
+            AppDomain.CurrentDomain.UnhandledException += (s, args) =>
             {
-                // Another instance already running: bring it to foreground and exit
-                PostMessage((IntPtr)HWND_BROADCAST, WM_SHOW_OPENMOUNT, IntPtr.Zero, IntPtr.Zero);
-                Current.Shutdown();
-                return;
+                LogCrash(args.ExceptionObject?.ToString() ?? "Unknown domain error");
+            };
+
+            DispatcherUnhandledException += (s, args) =>
+            {
+                LogCrash(args.Exception.ToString());
+                System.Windows.MessageBox.Show(
+                    $"OpenMount encountered an unexpected error:\n{args.Exception.Message}",
+                    "OpenMount Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                args.Handled = true;
+            };
+
+            bool isNewInstance = false;
+            try
+            {
+                _instanceMutex = new Mutex(true, MutexName, out isNewInstance);
+            }
+            catch (AbandonedMutexException)
+            {
+                isNewInstance = true;
             }
 
-            ThemeManager.Initialize();
+            if (!isNewInstance)
+            {
+                // Double check if another OpenMount process is actually alive
+                int currentPid = Environment.ProcessId;
+                var otherProcesses = System.Diagnostics.Process.GetProcesses()
+                    .Where(p => (p.ProcessName.Equals("OpenMount", StringComparison.OrdinalIgnoreCase) ||
+                                 p.ProcessName.Equals("OpenMount.Windows", StringComparison.OrdinalIgnoreCase)) &&
+                                 p.Id != currentPid)
+                    .ToList();
+
+                if (otherProcesses.Count > 0)
+                {
+                    // Existing instance running: wake it up and exit
+                    PostMessage((IntPtr)HWND_BROADCAST, WM_SHOW_OPENMOUNT, IntPtr.Zero, IntPtr.Zero);
+                    Current.Shutdown();
+                    return;
+                }
+            }
+
+            try
+            {
+                ThemeManager.Initialize();
+            }
+            catch (Exception ex)
+            {
+                LogCrash($"ThemeManager initialization error: {ex}");
+            }
 
             bool startMinimized = e.Args.Any(a =>
                 string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase) ||
@@ -56,6 +101,18 @@ namespace OpenMount.Windows
             {
                 mainWindow.Show();
             }
+        }
+
+        private static void LogCrash(string message)
+        {
+            try
+            {
+                string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OpenMount");
+                Directory.CreateDirectory(logDir);
+                string logFile = Path.Combine(logDir, "crash.log");
+                File.AppendAllText(logFile, $"[{DateTime.UtcNow:u}] {message}\n\n");
+            }
+            catch { }
         }
 
         private async void Application_Exit(object sender, ExitEventArgs e)

@@ -123,16 +123,9 @@ namespace OpenMount.Windows
         private static void SetBrush(ResourceDictionary res, string key, string hex)
         {
             var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
-            if (res.Contains(key) && res[key] is SolidColorBrush existing)
-            {
-                existing.Color = color;
-            }
-            else
-            {
-                var brush = new SolidColorBrush(color);
-                brush.Freeze();
-                res[key] = brush;
-            }
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            res[key] = brush;
         }
 
         private static bool DetectSystemDarkMode()
