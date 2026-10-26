@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Configure Drive - OpenMount" Height="620" Width="520"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Icon="app.ico"
         Background="{DynamicResource BrushWindowBg}" FontFamily="Segoe UI">
     <Window.Resources>
         <Style TargetType="TextBlock">

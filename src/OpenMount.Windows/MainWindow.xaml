@@ -4,7 +4,6 @@
         Title="OpenMount - Virtual Cloud Drive Manager" Height="580" Width="870"
         WindowStartupLocation="CenterScreen" MinHeight="450" MinWidth="700"
         Background="{DynamicResource BrushWindowBg}" FontFamily="Segoe UI"
-        Icon="app.ico"
         ShowInTaskbar="True"
         StateChanged="Window_StateChanged"
         Closing="Window_Closing">
@@ -25,7 +24,7 @@
 
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Image Source="app.png" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <Image x:Name="ImgAppLogo" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"/>
                         <TextBlock Text="OpenMount" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Text="High-Performance Virtual Cloud Storage for Windows" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" Margin="38,2,0,0"/>

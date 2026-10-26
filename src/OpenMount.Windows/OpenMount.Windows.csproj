@@ -19,12 +19,6 @@
   <ItemGroup>
     <Resource Include="app.ico" />
     <Resource Include="app.png" />
-    <Content Include="app.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="app.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <None Include="..\..\redist\winfsp.msi" Condition="Exists('..\..\redist\winfsp.msi')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>redist\winfsp.msi</TargetPath>

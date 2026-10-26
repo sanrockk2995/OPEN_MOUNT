@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
+using System.Windows.Media.Imaging;
 using OpenMount.Core.FileSystem;
 using OpenMount.Core.Manager;
 using Application = System.Windows.Application;
@@ -26,6 +27,7 @@ namespace OpenMount.Windows
         public MainWindow()
         {
             InitializeComponent();
+            ApplyAppVisualAssets();
             LstDrives.ItemsSource = Drives;
 
             InitializeTrayIcon();
@@ -35,6 +37,43 @@ namespace OpenMount.Windows
 
             // Load drives and trigger auto-mount immediately on creation (works in background on boot)
             _ = LoadDrivesAsync();
+        }
+
+        private void ApplyAppVisualAssets()
+        {
+            // Set Window Icon safely
+            try
+            {
+                var iconUri = new Uri("pack://application:,,,/OpenMount.Windows;component/app.ico", UriKind.Absolute);
+                Icon = BitmapFrame.Create(iconUri);
+            }
+            catch
+            {
+                try
+                {
+                    string? exe = Environment.ProcessPath;
+                    if (!string.IsNullOrEmpty(exe) && File.Exists(exe))
+                    {
+                        using var sysIcon = System.Drawing.Icon.ExtractAssociatedIcon(exe);
+                        if (sysIcon != null)
+                        {
+                            Icon = Imaging.CreateBitmapSourceFromHIcon(
+                                sysIcon.Handle,
+                                Int32Rect.Empty,
+                                BitmapSizeOptions.FromEmptyOptions());
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            // Set Logo image safely
+            try
+            {
+                var logoUri = new Uri("pack://application:,,,/OpenMount.Windows;component/app.png", UriKind.Absolute);
+                ImgAppLogo.Source = new BitmapImage(logoUri);
+            }
+            catch { }
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -109,6 +148,16 @@ namespace OpenMount.Windows
 
         private System.Drawing.Icon LoadAppIcon()
         {
+            try
+            {
+                var sri = Application.GetResourceStream(new Uri("pack://application:,,,/OpenMount.Windows;component/app.ico"));
+                if (sri?.Stream != null)
+                {
+                    return new System.Drawing.Icon(sri.Stream);
+                }
+            }
+            catch { }
+
             try
             {
                 string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");

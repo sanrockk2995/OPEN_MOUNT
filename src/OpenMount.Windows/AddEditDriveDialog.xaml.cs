@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using MessageBox = System.Windows.MessageBox;
 using OpenMount.Core.Manager;
 using OpenMount.Core.Storage.GoogleDrive;
@@ -16,11 +17,28 @@ namespace OpenMount.Windows
         public AddEditDriveDialog(DriveConfig? existingConfig = null)
         {
             InitializeComponent();
+            ApplyDialogIcon();
             _isEditing = existingConfig != null;
             Config = existingConfig ?? new DriveConfig();
 
             PopulateDriveLetters();
             LoadExistingConfig();
+        }
+
+        private void ApplyDialogIcon()
+        {
+            try
+            {
+                if (Owner?.Icon != null)
+                {
+                    Icon = Owner.Icon;
+                    return;
+                }
+
+                var iconUri = new Uri("pack://application:,,,/OpenMount.Windows;component/app.ico", UriKind.Absolute);
+                Icon = BitmapFrame.Create(iconUri);
+            }
+            catch { }
         }
 
         private void PopulateDriveLetters()
