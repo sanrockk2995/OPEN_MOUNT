@@ -10,6 +10,10 @@ using OpenMount.Core.Storage;
 using OpenMount.Core.Storage.Local;
 using OpenMount.Core.Storage.S3;
 using OpenMount.Core.Storage.GoogleDrive;
+using OpenMount.Core.Storage.WebDav;
+using OpenMount.Core.Storage.Sftp;
+using OpenMount.Core.Storage.Ftp;
+using OpenMount.Core.Storage.PCloud;
 
 namespace OpenMount.Cli
 {
@@ -101,14 +105,21 @@ Commands:
 
 Mount Options:
   -l, --letter <letter>     Drive letter (e.g. Z: or Z)
-  -p, --provider <type>     Provider type: 'local' or 's3' (default: local)
+  -p, --provider <type>     Provider type: 'local', 's3', 'gdrive', 'webdav', 'sftp', 'ftp', 'pcloud' (default: local)
   --label <label>           Drive volume label (default: OpenMount)
-  --path <path>             Root directory for local provider
+  --path <path>             Root directory or remote path
   --bucket <name>           Bucket name for S3 provider
   --endpoint <url>          S3 endpoint URL (e.g. https://s3.amazonaws.com)
   --region <region>         S3 region (default: us-east-1)
-  --key <key>               S3 Access Key
+  --key <key>               S3 Access Key or Private Key path
   --secret <secret>         S3 Secret Key
+  --url <url>               WebDAV Server URL
+  --host <host>             SFTP or FTP server hostname/IP
+  --port <port>             SFTP (default 22) or FTP (default 21) port
+  --user <username>         Username or account email
+  --pass <password>         Password or passphrase
+  --encryption <mode>       FTP encryption: None, Explicit, Implicit (default: None)
+  --location <loc>          pCloud data center: US or EU (default: US)
   --staging <dir>           Directory for write cache / staging
   --save                    Save configuration to DPAPI encrypted store
 
@@ -119,6 +130,10 @@ Config Commands:
 Examples:
   openmount mount -l Z: -p local --path C:\TestStorage --label ""Test Drive""
   openmount mount -l Y: -p s3 --bucket my-s3-bucket --key AKIA... --secret ...
+  openmount mount -l X: -p webdav --url https://webdav.pcloud.com --user email@domain.com --pass secret
+  openmount mount -l W: -p sftp --host 192.168.1.100 --user root --pass secret --path /var/www
+  openmount mount -l V: -p ftp --host ftp.dlptest.com --user dlpuser --pass rNrKYTX9g7z3RgJRmxWuGHbeu
+  openmount mount -l U: -p pcloud --user email@domain.com --pass secret --location US
 ");
         }
 
@@ -255,9 +270,133 @@ Examples:
 
                 provider = new GoogleDriveStorageProvider(gConfig, driveService, disposeService: true, displayName: label);
             }
+            else if (providerType == "webdav")
+            {
+                if (!opts.TryGetValue("url", out var url) || string.IsNullOrWhiteSpace(url))
+                {
+                    Console.Error.WriteLine("[Error] WebDAV provider requires --url <server_url>");
+                    return 1;
+                }
+
+                string user = opts.TryGetValue("user", out var u) ? u : string.Empty;
+                string pass = opts.TryGetValue("pass", out var pwd) ? pwd : string.Empty;
+                string path = opts.TryGetValue("path", out var pth) ? pth : "/";
+
+                config.SetSetting("url", url);
+                config.SetSetting("user", user);
+                config.SetSetting("pass", pass);
+                config.SetSetting("path", path);
+
+                var webdavCfg = new WebDavStorageConfig
+                {
+                    ServerUrl = url,
+                    Username = user,
+                    Password = pass,
+                    RootPath = path
+                };
+
+                provider = new WebDavStorageProvider(webdavCfg, displayName: label);
+            }
+            else if (providerType == "sftp")
+            {
+                if (!opts.TryGetValue("host", out var host) || string.IsNullOrWhiteSpace(host))
+                {
+                    Console.Error.WriteLine("[Error] SFTP provider requires --host <hostname>");
+                    return 1;
+                }
+
+                int port = opts.TryGetValue("port", out var pt) && int.TryParse(pt, out var parsedPort) ? parsedPort : 22;
+                string user = opts.TryGetValue("user", out var u) ? u : string.Empty;
+                string pass = opts.TryGetValue("pass", out var pwd2) ? pwd2 : string.Empty;
+                string keyPath = opts.TryGetValue("key", out var k) ? k : string.Empty;
+                string path = opts.TryGetValue("path", out var pth) ? pth : "/";
+
+                config.SetSetting("host", host);
+                config.SetSetting("port", port.ToString());
+                config.SetSetting("user", user);
+                config.SetSetting("pass", pass);
+                config.SetSetting("key_path", keyPath);
+                config.SetSetting("path", path);
+
+                var sftpCfg = new SftpStorageConfig
+                {
+                    Host = host,
+                    Port = port,
+                    Username = user,
+                    Password = pass,
+                    PrivateKeyPath = string.IsNullOrEmpty(keyPath) ? null : keyPath,
+                    RootPath = path
+                };
+
+                provider = new SftpStorageProvider(sftpCfg, displayName: label);
+            }
+            else if (providerType == "ftp" || providerType == "ftps")
+            {
+                if (!opts.TryGetValue("host", out var host) || string.IsNullOrWhiteSpace(host))
+                {
+                    Console.Error.WriteLine("[Error] FTP provider requires --host <hostname>");
+                    return 1;
+                }
+
+                int port = opts.TryGetValue("port", out var pt) && int.TryParse(pt, out var parsedPort) ? parsedPort : 21;
+                string user = opts.TryGetValue("user", out var u) ? u : string.Empty;
+                string pass = opts.TryGetValue("pass", out var pwd2) ? pwd2 : string.Empty;
+                string encryption = opts.TryGetValue("encryption", out var enc) ? enc : "None";
+                string path = opts.TryGetValue("path", out var pth) ? pth : "/";
+
+                config.SetSetting("host", host);
+                config.SetSetting("port", port.ToString());
+                config.SetSetting("encryption", encryption);
+                config.SetSetting("user", user);
+                config.SetSetting("pass", pass);
+                config.SetSetting("path", path);
+
+                var ftpCfg = new FtpStorageConfig
+                {
+                    Host = host,
+                    Port = port,
+                    Username = user,
+                    Password = pass,
+                    Encryption = encryption,
+                    RootPath = path
+                };
+
+                provider = new FtpStorageProvider(ftpCfg, displayName: label);
+            }
+            else if (providerType == "pcloud")
+            {
+                string user = opts.TryGetValue("user", out var u) ? u : string.Empty;
+                string pass = opts.TryGetValue("pass", out var pwd2) ? pwd2 : string.Empty;
+                string token = opts.TryGetValue("token", out var tk) ? tk : string.Empty;
+                string location = opts.TryGetValue("location", out var loc) ? loc : "US";
+                string path = opts.TryGetValue("path", out var pth) ? pth : "/";
+
+                if (string.IsNullOrEmpty(token) && (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass)))
+                {
+                    Console.Error.WriteLine("[Error] pCloud provider requires either --token <auth_token> or --user <email> and --pass <password>");
+                    return 1;
+                }
+
+                config.SetSetting("user", user);
+                config.SetSetting("pass", pass);
+                config.SetSetting("token", token);
+                config.SetSetting("location", location);
+                config.SetSetting("path", path);
+
+                var pcloudCfg = new PCloudStorageConfig
+                {
+                    Username = user,
+                    Password = pass,
+                    AuthToken = string.IsNullOrEmpty(token) ? null : token,
+                    Location = location,
+                    RootPath = path
+                };
+
+                provider = new PCloudStorageProvider(pcloudCfg, displayName: label);
+            }
             else
             {
-                Console.Error.WriteLine($"[Error] Unsupported provider type '{providerType}'. Supported: local, s3, gdrive");
+                Console.Error.WriteLine($"[Error] Unsupported provider type '{providerType}'. Supported: local, s3, gdrive, webdav, sftp, ftp, pcloud");
                 return 1;
             }
 

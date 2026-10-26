@@ -78,6 +78,61 @@ namespace OpenMount.Windows
                 TxtS3AccessKey.Text = Config.GetSetting("key") ?? "";
                 TxtS3SecretKey.Password = Config.GetSetting("secret") ?? "";
             }
+            else if (type == "webdav")
+            {
+                TabProviders.SelectedItem = TabWebDav;
+                TxtWebDavUrl.Text = Config.GetSetting("url") ?? "";
+                TxtWebDavPath.Text = Config.GetSetting("path") ?? "/";
+                TxtWebDavUser.Text = Config.GetSetting("user") ?? "";
+                TxtWebDavPassword.Password = Config.GetSetting("pass") ?? "";
+            }
+            else if (type == "sftp")
+            {
+                TabProviders.SelectedItem = TabSftp;
+                TxtSftpHost.Text = Config.GetSetting("host") ?? "";
+                TxtSftpPort.Text = Config.GetSetting("port") ?? "22";
+                TxtSftpPath.Text = Config.GetSetting("path") ?? "/";
+                TxtSftpUser.Text = Config.GetSetting("user") ?? "";
+                TxtSftpPassword.Password = Config.GetSetting("pass") ?? "";
+                TxtSftpKeyPath.Text = Config.GetSetting("key_path") ?? "";
+            }
+            else if (type == "ftp" || type == "ftps")
+            {
+                TabProviders.SelectedItem = TabFtp;
+                TxtFtpHost.Text = Config.GetSetting("host") ?? "";
+                TxtFtpPort.Text = Config.GetSetting("port") ?? "21";
+                TxtFtpPath.Text = Config.GetSetting("path") ?? "/";
+                TxtFtpUser.Text = Config.GetSetting("user") ?? "";
+                TxtFtpPassword.Password = Config.GetSetting("pass") ?? "";
+
+                string enc = Config.GetSetting("encryption") ?? "None";
+                CmbFtpEncryption.SelectedIndex = enc.ToLowerInvariant() switch
+                {
+                    "explicit" => 1,
+                    "implicit" => 2,
+                    _ => 0
+                };
+            }
+            else if (type == "pcloud")
+            {
+                TabProviders.SelectedItem = TabPCloud;
+                string loc = Config.GetSetting("location") ?? "US";
+                CmbPCloudLocation.SelectedIndex = string.Equals(loc, "EU", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                TxtPCloudUser.Text = Config.GetSetting("user") ?? "";
+                TxtPCloudPassword.Password = Config.GetSetting("pass") ?? "";
+                TxtPCloudPath.Text = Config.GetSetting("path") ?? "/";
+            }
+        }
+
+        private void BtnBrowseSftpKey_Click(object sender, RoutedEventArgs e)
+        {
+            using var dialog = new System.Windows.Forms.OpenFileDialog();
+            dialog.Title = "Select OpenSSH or PuTTY Private Key File";
+            dialog.Filter = "Key Files (*.pem;*.key;*.id_rsa;*.ppk)|*.pem;*.key;*.id_rsa;*.ppk|All Files (*.*)|*.*";
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                TxtSftpKeyPath.Text = dialog.FileName;
+            }
         }
 
         private void BtnBrowseLocal_Click(object sender, RoutedEventArgs e)
@@ -193,6 +248,79 @@ namespace OpenMount.Windows
                 Config.SetSetting("key", TxtS3AccessKey.Text.Trim());
                 Config.SetSetting("secret", TxtS3SecretKey.Password.Trim());
                 Config.SetSetting("region", "us-east-1");
+            }
+            else if (TabProviders.SelectedItem == TabWebDav)
+            {
+                string url = TxtWebDavUrl.Text.Trim();
+                if (string.IsNullOrEmpty(url))
+                {
+                    MessageBox.Show("Please enter a valid WebDAV server URL.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Config.ProviderType = "webdav";
+                Config.SetSetting("url", url);
+                Config.SetSetting("path", string.IsNullOrWhiteSpace(TxtWebDavPath.Text) ? "/" : TxtWebDavPath.Text.Trim());
+                Config.SetSetting("user", TxtWebDavUser.Text.Trim());
+                Config.SetSetting("pass", TxtWebDavPassword.Password);
+            }
+            else if (TabProviders.SelectedItem == TabSftp)
+            {
+                string host = TxtSftpHost.Text.Trim();
+                if (string.IsNullOrEmpty(host))
+                {
+                    MessageBox.Show("Please enter an SFTP host address.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Config.ProviderType = "sftp";
+                Config.SetSetting("host", host);
+                Config.SetSetting("port", string.IsNullOrWhiteSpace(TxtSftpPort.Text) ? "22" : TxtSftpPort.Text.Trim());
+                Config.SetSetting("path", string.IsNullOrWhiteSpace(TxtSftpPath.Text) ? "/" : TxtSftpPath.Text.Trim());
+                Config.SetSetting("user", TxtSftpUser.Text.Trim());
+                Config.SetSetting("pass", TxtSftpPassword.Password);
+                Config.SetSetting("key_path", TxtSftpKeyPath.Text.Trim());
+            }
+            else if (TabProviders.SelectedItem == TabFtp)
+            {
+                string host = TxtFtpHost.Text.Trim();
+                if (string.IsNullOrEmpty(host))
+                {
+                    MessageBox.Show("Please enter an FTP host address.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string enc = CmbFtpEncryption.SelectedIndex switch
+                {
+                    1 => "Explicit",
+                    2 => "Implicit",
+                    _ => "None"
+                };
+
+                Config.ProviderType = "ftp";
+                Config.SetSetting("host", host);
+                Config.SetSetting("port", string.IsNullOrWhiteSpace(TxtFtpPort.Text) ? "21" : TxtFtpPort.Text.Trim());
+                Config.SetSetting("encryption", enc);
+                Config.SetSetting("path", string.IsNullOrWhiteSpace(TxtFtpPath.Text) ? "/" : TxtFtpPath.Text.Trim());
+                Config.SetSetting("user", TxtFtpUser.Text.Trim());
+                Config.SetSetting("pass", TxtFtpPassword.Password);
+            }
+            else if (TabProviders.SelectedItem == TabPCloud)
+            {
+                string user = TxtPCloudUser.Text.Trim();
+                if (string.IsNullOrEmpty(user))
+                {
+                    MessageBox.Show("Please enter your pCloud email or username.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string loc = CmbPCloudLocation.SelectedIndex == 1 ? "EU" : "US";
+
+                Config.ProviderType = "pcloud";
+                Config.SetSetting("user", user);
+                Config.SetSetting("pass", TxtPCloudPassword.Password);
+                Config.SetSetting("location", loc);
+                Config.SetSetting("path", string.IsNullOrWhiteSpace(TxtPCloudPath.Text) ? "/" : TxtPCloudPath.Text.Trim());
             }
 
             DialogResult = true;

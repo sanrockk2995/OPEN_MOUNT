@@ -8,9 +8,13 @@ using System.Windows;
 using MessageBox = System.Windows.MessageBox;
 using OpenMount.Core.Manager;
 using OpenMount.Core.Storage;
+using OpenMount.Core.Storage.Ftp;
 using OpenMount.Core.Storage.GoogleDrive;
 using OpenMount.Core.Storage.Local;
+using OpenMount.Core.Storage.PCloud;
 using OpenMount.Core.Storage.S3;
+using OpenMount.Core.Storage.Sftp;
+using OpenMount.Core.Storage.WebDav;
 
 namespace OpenMount.Windows
 {
@@ -31,6 +35,10 @@ namespace OpenMount.Windows
         {
             "gdrive" or "google" => "Google Drive",
             "s3" => "Amazon S3 / MinIO",
+            "webdav" => "WebDAV",
+            "sftp" => "SFTP",
+            "ftp" or "ftps" => "FTP / FTPS",
+            "pcloud" => "pCloud",
             "local" => "Local Folder",
             _ => Config.ProviderType
         };
@@ -39,6 +47,10 @@ namespace OpenMount.Windows
         {
             "gdrive" or "google" => $"User: {Config.GetSetting("user") ?? "default"}",
             "s3" => $"Bucket: {Config.GetSetting("bucket")}",
+            "webdav" => $"Server: {Config.GetSetting("url")}",
+            "sftp" => $"Host: {Config.GetSetting("host")}:{Config.GetSetting("port") ?? "22"}",
+            "ftp" or "ftps" => $"Host: {Config.GetSetting("host")}:{Config.GetSetting("port") ?? "21"}",
+            "pcloud" => $"Account: {Config.GetSetting("user") ?? "pCloud"}",
             "local" => Config.GetSetting("path") ?? "Not configured",
             _ => string.Empty
         };
@@ -282,6 +294,58 @@ namespace OpenMount.Windows
                 var authService = new GoogleDriveAuthService(gConfig);
                 var driveService = await authService.CreateDriveServiceAsync();
                 return new GoogleDriveStorageProvider(gConfig, driveService, disposeService: true, displayName: config.Label);
+            }
+            else if (type == "webdav")
+            {
+                var webdavConfig = new WebDavStorageConfig
+                {
+                    ServerUrl = config.GetSetting("url") ?? string.Empty,
+                    Username = config.GetSetting("user") ?? string.Empty,
+                    Password = config.GetSetting("pass") ?? string.Empty,
+                    RootPath = config.GetSetting("path") ?? "/"
+                };
+                return new WebDavStorageProvider(webdavConfig, displayName: config.Label);
+            }
+            else if (type == "sftp")
+            {
+                int port = int.TryParse(config.GetSetting("port"), out var p) ? p : 22;
+                var sftpConfig = new SftpStorageConfig
+                {
+                    Host = config.GetSetting("host") ?? string.Empty,
+                    Port = port,
+                    Username = config.GetSetting("user") ?? string.Empty,
+                    Password = config.GetSetting("pass") ?? string.Empty,
+                    PrivateKeyPath = config.GetSetting("key_path"),
+                    PrivateKeyPassphrase = config.GetSetting("key_pass"),
+                    RootPath = config.GetSetting("path") ?? "/"
+                };
+                return new SftpStorageProvider(sftpConfig, displayName: config.Label);
+            }
+            else if (type == "ftp" || type == "ftps")
+            {
+                int port = int.TryParse(config.GetSetting("port"), out var p) ? p : 21;
+                var ftpConfig = new FtpStorageConfig
+                {
+                    Host = config.GetSetting("host") ?? string.Empty,
+                    Port = port,
+                    Username = config.GetSetting("user") ?? string.Empty,
+                    Password = config.GetSetting("pass") ?? string.Empty,
+                    Encryption = config.GetSetting("encryption") ?? "None",
+                    RootPath = config.GetSetting("path") ?? "/"
+                };
+                return new FtpStorageProvider(ftpConfig, displayName: config.Label);
+            }
+            else if (type == "pcloud")
+            {
+                var pcloudConfig = new PCloudStorageConfig
+                {
+                    Username = config.GetSetting("user") ?? string.Empty,
+                    Password = config.GetSetting("pass") ?? string.Empty,
+                    AuthToken = config.GetSetting("token"),
+                    Location = config.GetSetting("location") ?? "US",
+                    RootPath = config.GetSetting("path") ?? "/"
+                };
+                return new PCloudStorageProvider(pcloudConfig, displayName: config.Label);
             }
 
             throw new NotSupportedException($"Storage provider '{config.ProviderType}' is not supported.");
