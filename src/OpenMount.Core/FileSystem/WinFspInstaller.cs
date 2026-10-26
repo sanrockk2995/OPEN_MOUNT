@@ -129,6 +129,35 @@ namespace OpenMount.Core.FileSystem
             }
             catch { }
 
+            // Extract from embedded assembly resource (enables single standalone .exe to install WinFsp)
+            try
+            {
+                var asm = typeof(WinFspInstaller).Assembly;
+                string? resName = Array.Find(asm.GetManifestResourceNames(), n => n.EndsWith("winfsp.msi", StringComparison.OrdinalIgnoreCase));
+                if (resName != null)
+                {
+                    string tempDir = Path.Combine(Path.GetTempPath(), "OpenMount");
+                    Directory.CreateDirectory(tempDir);
+                    string extractedPath = Path.Combine(tempDir, "winfsp.msi");
+
+                    if (!File.Exists(extractedPath) || new FileInfo(extractedPath).Length < 1_000_000)
+                    {
+                        using var stream = asm.GetManifestResourceStream(resName);
+                        if (stream != null)
+                        {
+                            using var fs = new FileStream(extractedPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                            stream.CopyTo(fs);
+                        }
+                    }
+
+                    if (File.Exists(extractedPath) && new FileInfo(extractedPath).Length > 100_000)
+                    {
+                        return extractedPath;
+                    }
+                }
+            }
+            catch { }
+
             return null;
         }
 

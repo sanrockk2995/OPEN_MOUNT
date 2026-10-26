@@ -23,4 +23,8 @@
     <PackageReference Include="AWSSDK.S3" Version="3.7.307.26" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\redist\winfsp.msi" Link="winfsp.msi" Condition="Exists('..\..\redist\winfsp.msi')" />
+  </ItemGroup>
+
 </Project>
