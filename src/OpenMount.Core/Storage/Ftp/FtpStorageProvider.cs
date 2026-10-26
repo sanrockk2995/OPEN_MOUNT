@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentFTP;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage.Ftp
 {
@@ -305,6 +306,75 @@ namespace OpenMount.Core.Storage.Ftp
                 {
                     await _client.MoveDirectory(ftpSrc, ftpDst, FtpRemoteExists.Overwrite, ct).ConfigureAwait(false);
                 }
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        public async Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string cleanSrc = NormalizePath(sourcePath);
+            string cleanDst = NormalizePath(destinationPath);
+
+            var existingDst = await GetMetadataAsync(cleanDst, ct).ConfigureAwait(false);
+            if (existingDst != null)
+            {
+                switch (conflictResolution)
+                {
+                    case ConflictResolutionMode.Skip:
+                        return;
+                    case ConflictResolutionMode.OverwriteTarget:
+                        if (existingDst.IsDirectory)
+                            await DeleteDirectoryAsync(cleanDst, true, ct).ConfigureAwait(false);
+                        else
+                            await DeleteFileAsync(cleanDst, ct).ConfigureAwait(false);
+                        break;
+                    case ConflictResolutionMode.RenameSource:
+                        string dir = Path.GetDirectoryName(cleanDst) ?? "\\";
+                        string nameNoExt = Path.GetFileNameWithoutExtension(cleanDst);
+                        string ext = Path.GetExtension(cleanDst);
+                        cleanDst = Path.Combine(dir, $"{nameNoExt} (1){ext}");
+                        break;
+                }
+            }
+
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            string ftpSrc = ToFtpPath(cleanSrc);
+            string ftpDst = ToFtpPath(cleanDst);
+
+            await _semaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                using var ms = new MemoryStream();
+                bool downloaded = await _client.DownloadStream(ms, ftpSrc, 0, null, ct).ConfigureAwait(false);
+                if (downloaded)
+                {
+                    ms.Position = 0;
+                    await _client.UploadStream(ms, ftpDst, FtpRemoteExists.Overwrite, false, null, ct).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        public async Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            string clean = NormalizePath(path);
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            string ftpPath = ToFtpPath(clean);
+
+            await _semaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await _client.SetModifiedTime(ftpPath, lastModifiedTime.UtcDateTime, token: ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Some FTP servers don't support MFMT / MDTM modification
             }
             finally
             {

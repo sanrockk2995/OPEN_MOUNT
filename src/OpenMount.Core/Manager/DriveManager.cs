@@ -36,7 +36,17 @@ namespace OpenMount.Core.Manager
         {
             try
             {
+                if (FileSystem.AsyncUploadQueue != null)
+                {
+                    await FileSystem.AsyncUploadQueue.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+            catch { }
+
+            try
+            {
                 Host.Unmount();
+                FileSystem.IsMounted = false;
             }
             catch { }
 
@@ -113,7 +123,7 @@ namespace OpenMount.Core.Manager
             await provider.InitializeAsync(ct).ConfigureAwait(false);
 
             var cacheManager = new FileCacheManager(driveLetter.TrimEnd(':'), config.StagingPath);
-            var vfs = new VirtualFileSystem(provider, config.StagingPath, cacheManager);
+            var vfs = new VirtualFileSystem(provider, config.StagingPath, cacheManager, config);
             var host = new FileSystemHost(vfs);
 
             int status = host.Mount(driveLetter, null, false, 0);
@@ -123,6 +133,8 @@ namespace OpenMount.Core.Manager
                 await provider.DisposeAsync().ConfigureAwait(false);
                 throw new IOException($"Failed to mount drive {driveLetter}. WinFsp status code: 0x{status:X8}");
             }
+
+            vfs.IsMounted = true;
 
             var context = new MountedDriveContext(config, provider, vfs, host);
             _mountedDrives[driveLetter] = context;

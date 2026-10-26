@@ -9,6 +9,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage.PCloud
 {
@@ -371,6 +372,53 @@ namespace OpenMount.Core.Storage.PCloud
 
             using var res = await _httpClient.GetAsync(url, ct).ConfigureAwait(false);
             res.EnsureSuccessStatusCode();
+        }
+
+        public async Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string cleanSrc = NormalizePath(sourcePath);
+            string cleanDst = NormalizePath(destinationPath);
+            await EnsureAuthenticatedAsync(ct).ConfigureAwait(false);
+
+            var existingDst = await GetMetadataAsync(cleanDst, ct).ConfigureAwait(false);
+            if (existingDst != null)
+            {
+                switch (conflictResolution)
+                {
+                    case ConflictResolutionMode.Skip:
+                        return;
+                    case ConflictResolutionMode.OverwriteTarget:
+                        if (existingDst.IsDirectory)
+                            await DeleteDirectoryAsync(cleanDst, true, ct).ConfigureAwait(false);
+                        else
+                            await DeleteFileAsync(cleanDst, ct).ConfigureAwait(false);
+                        break;
+                    case ConflictResolutionMode.RenameSource:
+                        string dir = Path.GetDirectoryName(cleanDst) ?? "\\";
+                        string nameNoExt = Path.GetFileNameWithoutExtension(cleanDst);
+                        string ext = Path.GetExtension(cleanDst);
+                        cleanDst = Path.Combine(dir, $"{nameNoExt} (1){ext}");
+                        break;
+                }
+            }
+
+            string srcPcloud = ToPCloudPath(cleanSrc);
+            string dstPcloud = ToPCloudPath(cleanDst);
+            var srcMeta = await GetMetadataAsync(cleanSrc, ct).ConfigureAwait(false);
+            bool isDir = srcMeta?.IsDirectory == true;
+
+            string endpoint = isDir ? "copydir" : "copyfile";
+            string url = $"{_apiBase}/{endpoint}?path={Uri.EscapeDataString(srcPcloud)}&topath={Uri.EscapeDataString(dstPcloud)}&auth={Uri.EscapeDataString(_authToken!)}";
+
+            using var res = await _httpClient.GetAsync(url, ct).ConfigureAwait(false);
+            res.EnsureSuccessStatusCode();
+        }
+
+        public Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            // pCloud API does not expose direct mtime modification endpoint without re-upload.
+            // Succeed gracefully to maintain metadata sync compatibility.
+            return Task.CompletedTask;
         }
 
         private static string NormalizePath(string path)

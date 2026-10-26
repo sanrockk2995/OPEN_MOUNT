@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage.Local
 {
@@ -237,6 +238,53 @@ namespace OpenMount.Core.Storage.Local
                 throw new FileNotFoundException("Source item does not exist", srcLocal);
             }
 
+            return Task.CompletedTask;
+        }
+
+        public Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string srcLocal = ResolveLocalPath(sourcePath);
+            string dstLocal = ResolveLocalPath(destinationPath);
+
+            string? parent = Path.GetDirectoryName(dstLocal);
+            if (!string.IsNullOrEmpty(parent) && !Directory.Exists(parent))
+            {
+                Directory.CreateDirectory(parent);
+            }
+
+            if (File.Exists(dstLocal))
+            {
+                if (conflictResolution == ConflictResolutionMode.Skip)
+                    return Task.CompletedTask;
+                if (conflictResolution == ConflictResolutionMode.RenameSource)
+                {
+                    string dir = Path.GetDirectoryName(dstLocal) ?? "";
+                    string baseName = Path.GetFileNameWithoutExtension(dstLocal);
+                    string ext = Path.GetExtension(dstLocal);
+                    int counter = 1;
+                    while (File.Exists(dstLocal))
+                    {
+                        dstLocal = Path.Combine(dir, $"{baseName} ({counter}){ext}");
+                        counter++;
+                    }
+                }
+            }
+
+            File.Copy(srcLocal, dstLocal, overwrite: conflictResolution == ConflictResolutionMode.OverwriteTarget);
+            return Task.CompletedTask;
+        }
+
+        public Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            string localPath = ResolveLocalPath(path);
+            if (File.Exists(localPath))
+            {
+                File.SetLastWriteTimeUtc(localPath, lastModifiedTime.UtcDateTime);
+            }
+            else if (Directory.Exists(localPath))
+            {
+                Directory.SetLastWriteTimeUtc(localPath, lastModifiedTime.UtcDateTime);
+            }
             return Task.CompletedTask;
         }
 

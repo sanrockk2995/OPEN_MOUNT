@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage.Sftp
 {
@@ -349,6 +350,72 @@ namespace OpenMount.Core.Storage.Sftp
             try
             {
                 _client.RenameFile(sftpSrc, sftpDst);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        public async Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string cleanSrc = NormalizePath(sourcePath);
+            string cleanDst = NormalizePath(destinationPath);
+
+            var existingDst = await GetMetadataAsync(cleanDst, ct).ConfigureAwait(false);
+            if (existingDst != null)
+            {
+                switch (conflictResolution)
+                {
+                    case ConflictResolutionMode.Skip:
+                        return;
+                    case ConflictResolutionMode.OverwriteTarget:
+                        if (existingDst.IsDirectory)
+                            await DeleteDirectoryAsync(cleanDst, true, ct).ConfigureAwait(false);
+                        else
+                            await DeleteFileAsync(cleanDst, ct).ConfigureAwait(false);
+                        break;
+                    case ConflictResolutionMode.RenameSource:
+                        string dir = Path.GetDirectoryName(cleanDst) ?? "\\";
+                        string nameNoExt = Path.GetFileNameWithoutExtension(cleanDst);
+                        string ext = Path.GetExtension(cleanDst);
+                        cleanDst = Path.Combine(dir, $"{nameNoExt} (1){ext}");
+                        break;
+                }
+            }
+
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            string sftpSrc = ToSftpPath(cleanSrc);
+            string sftpDst = ToSftpPath(cleanDst);
+
+            await _semaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                using var ms = new MemoryStream();
+                _client.DownloadFile(sftpSrc, ms);
+                ms.Position = 0;
+                _client.UploadFile(ms, sftpDst, true);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        public async Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            string clean = NormalizePath(path);
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            string sftpPath = ToSftpPath(clean);
+
+            await _semaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                _client.SetLastWriteTime(sftpPath, lastModifiedTime.UtcDateTime);
+            }
+            catch
+            {
+                // Graceful fallback if SFTP server doesn't allow setting attributes
             }
             finally
             {

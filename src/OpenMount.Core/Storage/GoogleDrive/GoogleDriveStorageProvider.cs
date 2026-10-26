@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Drive.v3;
 using Google.Apis.Drive.v3.Data;
+using OpenMount.Core.Manager;
 using File = Google.Apis.Drive.v3.Data.File;
 
 namespace OpenMount.Core.Storage.GoogleDrive
@@ -616,6 +617,78 @@ namespace OpenMount.Core.Storage.GoogleDrive
 
             InvalidateCache(oldParentId, cleanSrc);
             InvalidateCache(newParent.Id, cleanDst);
+        }
+
+        public async Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string cleanSrc = NormalizePath(sourcePath);
+            string cleanDst = NormalizePath(destinationPath);
+
+            var item = await ResolveItemByPathAsync(cleanSrc, ct).ConfigureAwait(false);
+            if (item == null)
+            {
+                throw new FileNotFoundException("Source file not found", sourcePath);
+            }
+
+            string newParentPath = GetParentPath(cleanDst);
+            string newName = Path.GetFileName(cleanDst);
+
+            var newParent = await ResolveItemByPathAsync(newParentPath, ct).ConfigureAwait(false);
+            if (newParent == null || !newParent.IsDirectory)
+            {
+                throw new DirectoryNotFoundException($"Destination parent folder not found: {newParentPath}");
+            }
+
+            var existingDst = await ResolveItemByPathAsync(cleanDst, ct).ConfigureAwait(false);
+            if (existingDst != null)
+            {
+                if (conflictResolution == ConflictResolutionMode.Skip)
+                    return;
+                if (conflictResolution == ConflictResolutionMode.OverwriteTarget)
+                {
+                    await DeleteFileAsync(cleanDst, ct).ConfigureAwait(false);
+                }
+                else if (conflictResolution == ConflictResolutionMode.RenameSource)
+                {
+                    string baseName = Path.GetFileNameWithoutExtension(cleanDst);
+                    string ext = Path.GetExtension(cleanDst);
+                    int counter = 1;
+                    while (await ResolveItemByPathAsync(cleanDst, ct).ConfigureAwait(false) != null)
+                    {
+                        newName = $"{baseName} ({counter}){ext}";
+                        cleanDst = NormalizePath(Path.Combine(newParentPath, newName));
+                        counter++;
+                    }
+                }
+            }
+
+            var copyMeta = new File
+            {
+                Name = newName,
+                Parents = new List<string> { newParent.Id }
+            };
+
+            var copyReq = _driveService.Files.Copy(copyMeta, item.Id);
+            copyReq.SupportsAllDrives = true;
+            await copyReq.ExecuteAsync(ct).ConfigureAwait(false);
+
+            InvalidateCache(newParent.Id, cleanDst);
+        }
+
+        public async Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            string clean = NormalizePath(path);
+            var item = await ResolveItemByPathAsync(clean, ct).ConfigureAwait(false);
+            if (item == null) return;
+
+            var updateMeta = new File
+            {
+                ModifiedTimeDateTimeOffset = lastModifiedTime
+            };
+            var updateReq = _driveService.Files.Update(updateMeta, item.Id);
+            updateReq.SupportsAllDrives = true;
+            await updateReq.ExecuteAsync(ct).ConfigureAwait(false);
+            InvalidateCache(item.ParentId, clean);
         }
 
         private void InvalidateCache(string parentFolderId, string virtualPath)

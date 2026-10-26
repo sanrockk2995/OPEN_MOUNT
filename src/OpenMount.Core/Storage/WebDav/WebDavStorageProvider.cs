@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage.WebDav
 {
@@ -375,6 +376,30 @@ namespace OpenMount.Core.Storage.WebDav
             {
                 throw new IOException($"Failed to move WebDAV item '{sourcePath}' to '{destinationPath}': HTTP {(int)res.StatusCode} ({res.ReasonPhrase})");
             }
+        }
+
+        public async Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string cleanSrc = NormalizePath(sourcePath);
+            string cleanDst = NormalizePath(destinationPath);
+
+            using var req = CreateRequest(new HttpMethod("COPY"), cleanSrc);
+            var destUri = BuildUri(cleanDst);
+            req.Headers.TryAddWithoutValidation("Destination", destUri.AbsoluteUri);
+            req.Headers.TryAddWithoutValidation("Overwrite", conflictResolution == ConflictResolutionMode.OverwriteTarget ? "T" : "F");
+
+            using var res = await _httpClient.SendAsync(req, ct).ConfigureAwait(false);
+            if (!res.IsSuccessStatusCode)
+            {
+                if (conflictResolution == ConflictResolutionMode.Skip && res.StatusCode == System.Net.HttpStatusCode.PreconditionFailed)
+                    return;
+                throw new IOException($"Failed to copy WebDAV item '{sourcePath}' to '{destinationPath}': HTTP {(int)res.StatusCode} ({res.ReasonPhrase})");
+            }
+        }
+
+        public Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            return Task.CompletedTask;
         }
 
         private static string NormalizePath(string path)

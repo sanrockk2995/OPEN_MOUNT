@@ -9,6 +9,7 @@ using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage.S3
 {
@@ -352,6 +353,46 @@ namespace OpenMount.Core.Storage.S3
             await _s3Client.CopyObjectAsync(copyReq, ct).ConfigureAwait(false);
 
             await _s3Client.DeleteObjectAsync(_config.BucketName, srcKey, ct).ConfigureAwait(false);
+        }
+
+        public async Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default)
+        {
+            string srcKey = ToS3Key(sourcePath);
+            string dstKey = ToS3Key(destinationPath);
+
+            var existingDst = await GetMetadataAsync(destinationPath, ct).ConfigureAwait(false);
+            if (existingDst != null)
+            {
+                if (conflictResolution == ConflictResolutionMode.Skip)
+                    return;
+                if (conflictResolution == ConflictResolutionMode.RenameSource)
+                {
+                    string dir = Path.GetDirectoryName(destinationPath) ?? "";
+                    string baseName = Path.GetFileNameWithoutExtension(destinationPath);
+                    string ext = Path.GetExtension(destinationPath);
+                    int counter = 1;
+                    while (await GetMetadataAsync(destinationPath, ct).ConfigureAwait(false) != null)
+                    {
+                        destinationPath = Path.Combine(dir, $"{baseName} ({counter}){ext}");
+                        counter++;
+                    }
+                    dstKey = ToS3Key(destinationPath);
+                }
+            }
+
+            var copyReq = new CopyObjectRequest
+            {
+                SourceBucket = _config.BucketName,
+                SourceKey = srcKey,
+                DestinationBucket = _config.BucketName,
+                DestinationKey = dstKey
+            };
+            await _s3Client.CopyObjectAsync(copyReq, ct).ConfigureAwait(false);
+        }
+
+        public Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default)
+        {
+            return Task.CompletedTask;
         }
 
         public ValueTask DisposeAsync()

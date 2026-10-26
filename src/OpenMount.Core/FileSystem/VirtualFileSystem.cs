@@ -6,7 +6,10 @@ using System.Security.AccessControl;
 using Fsp;
 using Fsp.Interop;
 using OpenMount.Core.Cache;
+using OpenMount.Core.Manager;
+using OpenMount.Core.Monitoring;
 using OpenMount.Core.Storage;
+using OpenMount.Core.Sync;
 using FileInfo = Fsp.Interop.FileInfo;
 
 namespace OpenMount.Core.FileSystem
@@ -16,9 +19,19 @@ namespace OpenMount.Core.FileSystem
         private readonly IStorageProvider _storage;
         private readonly string _stagingDir;
         private readonly FileCacheManager _cacheManager;
+        private readonly DriveConfig _config;
+        private readonly AsyncUploadQueue? _asyncUploadQueue;
+        private readonly FolderPropertiesCache _folderPropertiesCache;
+        private readonly ProcessAccessMonitor _processMonitor;
         private static readonly byte[] DefaultSecurityDescriptor;
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, VirtualFileNode> _activeNodes =
             new System.Collections.Concurrent.ConcurrentDictionary<string, VirtualFileNode>(StringComparer.OrdinalIgnoreCase);
+
+        public DriveConfig Config => _config;
+        public AsyncUploadQueue? AsyncUploadQueue => _asyncUploadQueue;
+        public FolderPropertiesCache FolderPropertiesCache => _folderPropertiesCache;
+        public ProcessAccessMonitor ProcessMonitor => _processMonitor;
+        public bool IsMounted { get; set; }
 
         private const uint FILE_WRITE_DATA = 0x0002;
         private const uint FILE_APPEND_DATA = 0x0004;
@@ -50,15 +63,26 @@ namespace OpenMount.Core.FileSystem
             }
         }
 
-        public VirtualFileSystem(IStorageProvider storage, string? stagingDir = null, FileCacheManager? cacheManager = null)
+        public VirtualFileSystem(IStorageProvider storage, string? stagingDir = null, FileCacheManager? cacheManager = null, DriveConfig? config = null)
         {
             _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            _config = config ?? new DriveConfig { AsyncUpload = false };
             _stagingDir = stagingDir ?? Path.Combine(Path.GetTempPath(), "OpenMount", "staging");
             if (!Directory.Exists(_stagingDir))
             {
                 Directory.CreateDirectory(_stagingDir);
             }
             _cacheManager = cacheManager ?? new FileCacheManager(storage.ProviderId);
+            _folderPropertiesCache = new FolderPropertiesCache();
+            _processMonitor = new ProcessAccessMonitor(_config.MonitorProcessAccess);
+            if (_config.AsyncUpload)
+            {
+                _asyncUploadQueue = new AsyncUploadQueue(_storage, path =>
+                {
+                    InvalidateCache(path);
+                    _cacheManager.Invalidate(path);
+                });
+            }
         }
 
         private VirtualFileNode AcquireNode(string path, bool isDir, long size = 0, FileAttributes attrs = FileAttributes.Normal)
@@ -99,6 +123,24 @@ namespace OpenMount.Core.FileSystem
             if (string.IsNullOrEmpty(path)) return "\\";
             string clean = path.Replace('/', '\\');
             return clean.StartsWith("\\") ? clean : "\\" + clean;
+        }
+
+        private int SafeGetOperationProcessId()
+        {
+            if (!IsMounted)
+                return 0;
+
+            if (!_config.MonitorProcessAccess && _config.EnableFilePreview)
+                return 0;
+
+            try
+            {
+                return GetOperationProcessId();
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private static readonly HashSet<string> ExplorerProbeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -192,6 +234,23 @@ namespace OpenMount.Core.FileSystem
             if (_metadataCache.TryGetValue(clean, out var cached) && !cached.IsExpired(CacheTtl))
             {
                 return cached.Metadata;
+            }
+
+            // In-flight Async Upload Queue check (Read-Your-Own-Writes)
+            if (_asyncUploadQueue != null && _asyncUploadQueue.TryGetInFlightLocalPath(clean, out var inFlightPath) && File.Exists(inFlightPath))
+            {
+                var fi = new System.IO.FileInfo(inFlightPath!);
+                return new StorageItemMetadata
+                {
+                    Path = clean,
+                    Name = Path.GetFileName(clean),
+                    IsDirectory = false,
+                    Size = fi.Length,
+                    CreatedTime = fi.CreationTimeUtc,
+                    LastAccessTime = fi.LastAccessTimeUtc,
+                    LastModifiedTime = fi.LastWriteTimeUtc,
+                    Attributes = FileAttributes.Normal
+                };
             }
 
             string baseName = Path.GetFileName(clean);
@@ -363,6 +422,15 @@ namespace OpenMount.Core.FileSystem
             fileInfo = default;
             normalizedName = null!;
 
+            if (_config.MonitorProcessAccess)
+            {
+                int pid = SafeGetOperationProcessId();
+                if (pid > 0)
+                {
+                    _processMonitor.RecordAccess(pid, fileName, (createOptions & FILE_DIRECTORY_FILE) != 0 ? "CreateDirectory" : "CreateFile");
+                }
+            }
+
             bool isDir = (createOptions & FILE_DIRECTORY_FILE) != 0;
             if (isDir)
             {
@@ -422,6 +490,15 @@ namespace OpenMount.Core.FileSystem
             fileDesc = null!;
             fileInfo = default;
             normalizedName = null!;
+
+            if (_config.MonitorProcessAccess)
+            {
+                int pid = SafeGetOperationProcessId();
+                if (pid > 0)
+                {
+                    _processMonitor.RecordAccess(pid, fileName, "Open");
+                }
+            }
 
             if (string.IsNullOrEmpty(fileName) || fileName == "\\" || fileName == "/")
             {
@@ -535,6 +612,17 @@ namespace OpenMount.Core.FileSystem
             var node = (VirtualFileNode)fileNode;
             var desc = (VirtualFileDesc)fileDesc;
 
+            int callingPid = SafeGetOperationProcessId();
+            if (_config.MonitorProcessAccess && callingPid > 0)
+            {
+                _processMonitor.RecordAccess(callingPid, node.Path, "Read");
+            }
+
+            if (!_config.EnableFilePreview && callingPid > 0 && _processMonitor.IsPreviewProcess(callingPid))
+            {
+                return STATUS_NOT_SUPPORTED;
+            }
+
             if (offset >= (ulong)node.Size)
             {
                 return STATUS_END_OF_FILE;
@@ -548,6 +636,29 @@ namespace OpenMount.Core.FileSystem
 
             lock (node.LockObj)
             {
+                // In-flight read-your-own-writes (Async Upload Queue)
+                if (_asyncUploadQueue != null && _asyncUploadQueue.TryGetInFlightLocalPath(node.Path, out var inFlightPath))
+                {
+                    try
+                    {
+                        using var inFlightFs = new FileStream(inFlightPath!, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        inFlightFs.Seek((long)offset, SeekOrigin.Begin);
+                        byte[] temp = new byte[Math.Min(toRead, 65536)];
+                        uint totalRead = 0;
+                        while (totalRead < toRead)
+                        {
+                            int chunk = (int)Math.Min((uint)temp.Length, toRead - totalRead);
+                            int r = inFlightFs.Read(temp, 0, chunk);
+                            if (r <= 0) break;
+                            Marshal.Copy(temp, 0, IntPtr.Add(buffer, (int)totalRead), r);
+                            totalRead += (uint)r;
+                        }
+                        bytesTransferred = totalRead;
+                        return STATUS_SUCCESS;
+                    }
+                    catch { }
+                }
+
                 // 1. If file descriptor has an active local stream:
                 if (desc.LocalFileStream != null)
                 {
@@ -564,6 +675,31 @@ namespace OpenMount.Core.FileSystem
                     }
                     bytesTransferred = totalRead;
                     return STATUS_SUCCESS;
+                }
+
+                // Fast Preview: if file preview is enabled and request comes from a preview process (prevhost / thumbnailhost)
+                if (desc.LocalFileStream == null && _config.EnableFilePreview && callingPid > 0 && _processMonitor.IsPreviewProcess(callingPid))
+                {
+                    try
+                    {
+                        using var previewStream = _storage.OpenReadAsync(node.Path, (long)offset, (long)toRead).GetAwaiter().GetResult();
+                        byte[] temp = new byte[Math.Min(toRead, 65536)];
+                        uint totalRead = 0;
+                        while (totalRead < toRead)
+                        {
+                            int chunk = (int)Math.Min((uint)temp.Length, toRead - totalRead);
+                            int r = previewStream.Read(temp, 0, chunk);
+                            if (r <= 0) break;
+                            Marshal.Copy(temp, 0, IntPtr.Add(buffer, (int)totalRead), r);
+                            totalRead += (uint)r;
+                        }
+                        bytesTransferred = totalRead;
+                        return STATUS_SUCCESS;
+                    }
+                    catch
+                    {
+                        // Fallback to caching
+                    }
                 }
 
                 // 2. Normal files: Ensure cached locally for seekable random access
@@ -640,6 +776,15 @@ namespace OpenMount.Core.FileSystem
             bytesTransferred = 0;
             var node = (VirtualFileNode)fileNode;
             var desc = (VirtualFileDesc)fileDesc;
+
+            if (_config.MonitorProcessAccess)
+            {
+                int pid = SafeGetOperationProcessId();
+                if (pid > 0)
+                {
+                    _processMonitor.RecordAccess(pid, node.Path, "Write");
+                }
+            }
 
             lock (node.LockObj)
             {
@@ -762,6 +907,19 @@ namespace OpenMount.Core.FileSystem
                 if (lastWriteTime != 0)
                 {
                     node.LastWriteTime = DateTimeOffset.FromFileTime((long)lastWriteTime);
+                    if (_config.MaintainDateModified)
+                    {
+                        var mtime = node.LastWriteTime;
+                        var p = node.Path;
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await _storage.SetLastModifiedTimeAsync(p, mtime).ConfigureAwait(false);
+                            }
+                            catch { }
+                        });
+                    }
                 }
 
                 fileInfo = CreateFileInfo(node);
@@ -805,6 +963,16 @@ namespace OpenMount.Core.FileSystem
         {
             var node = (VirtualFileNode)fileNode;
             var desc = (VirtualFileDesc)fileDesc;
+
+            if (_config.MonitorProcessAccess)
+            {
+                int pid = SafeGetOperationProcessId();
+                if (pid > 0)
+                {
+                    _processMonitor.RecordAccess(pid, fileName, "Move/Rename");
+                }
+            }
+
             try
             {
                 // If modified in staging, flush before remote move
@@ -846,6 +1014,15 @@ namespace OpenMount.Core.FileSystem
             var node = (VirtualFileNode)fileNode;
             var desc = (VirtualFileDesc)fileDesc;
 
+            if (_config.MonitorProcessAccess)
+            {
+                int pid = SafeGetOperationProcessId();
+                if (pid > 0)
+                {
+                    _processMonitor.RecordAccess(pid, node.Path, "Cleanup");
+                }
+            }
+
             if ((flags & 0x01) != 0 || node.DeleteOnClose)
             {
                 try
@@ -873,10 +1050,25 @@ namespace OpenMount.Core.FileSystem
                 try
                 {
                     desc.LocalFileStream.Flush();
-                    desc.LocalFileStream.Position = 0;
-                    _storage.CreateFileAsync(node.Path, desc.LocalFileStream).GetAwaiter().GetResult();
-                    desc.IsModified = false;
-                    InvalidateCache(node.Path);
+
+                    if (_config.AsyncUpload && _asyncUploadQueue != null && !string.IsNullOrEmpty(desc.LocalFilePath))
+                    {
+                        string stagedPath = desc.LocalFilePath;
+                        desc.LocalFileStream.Dispose();
+                        desc.LocalFileStream = null;
+                        desc.IsModified = false;
+
+                        _asyncUploadQueue.Enqueue(node.Path, stagedPath);
+                        InvalidateCache(node.Path);
+                        _cacheManager.Invalidate(node.Path);
+                    }
+                    else
+                    {
+                        desc.LocalFileStream.Position = 0;
+                        _storage.CreateFileAsync(node.Path, desc.LocalFileStream).GetAwaiter().GetResult();
+                        desc.IsModified = false;
+                        InvalidateCache(node.Path);
+                    }
                 }
                 catch
                 {
@@ -959,6 +1151,7 @@ namespace OpenMount.Core.FileSystem
                                 it.Attributes));
                         }
                         _directoryListingCache[NormalizePath(node.Path)] = new CachedDirectoryListing(childNames);
+                        _folderPropertiesCache.Update(NormalizePath(node.Path), items);
                     }
                 }
                 catch { }

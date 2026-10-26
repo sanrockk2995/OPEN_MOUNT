@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using OpenMount.Core.Manager;
 
 namespace OpenMount.Core.Storage
 {
@@ -22,5 +23,7 @@ namespace OpenMount.Core.Storage
         Task DeleteFileAsync(string path, CancellationToken ct = default);
         Task DeleteDirectoryAsync(string path, bool recursive, CancellationToken ct = default);
         Task MoveAsync(string sourcePath, string destinationPath, CancellationToken ct = default);
+        Task CopyAsync(string sourcePath, string destinationPath, ConflictResolutionMode conflictResolution, CancellationToken ct = default);
+        Task SetLastModifiedTimeAsync(string path, DateTimeOffset lastModifiedTime, CancellationToken ct = default);
     }
 }

@@ -23,6 +23,30 @@ namespace OpenMount.Windows
 
             PopulateDriveLetters();
             LoadExistingConfig();
+            LoadAdvancedOptions();
+        }
+
+        private void LoadAdvancedOptions()
+        {
+            ChkFilePreview.IsChecked = Config.EnableFilePreview;
+            ChkInstantProperties.IsChecked = Config.InstantProperties;
+            ChkAsyncUpload.IsChecked = Config.AsyncUpload;
+            ChkMaintainDateModified.IsChecked = Config.MaintainDateModified;
+            ChkMonitorProcessAccess.IsChecked = Config.MonitorProcessAccess;
+            ChkQuickRemoteOperations.IsChecked = Config.QuickRemoteOperations;
+
+            switch (Config.ConflictResolution)
+            {
+                case ConflictResolutionMode.RenameSource:
+                    RbRenameSource.IsChecked = true;
+                    break;
+                case ConflictResolutionMode.Skip:
+                    RbSkip.IsChecked = true;
+                    break;
+                default:
+                    RbOverwrite.IsChecked = true;
+                    break;
+            }
         }
 
         private void ApplyDialogIcon()
@@ -340,6 +364,20 @@ namespace OpenMount.Windows
                 Config.SetSetting("location", loc);
                 Config.SetSetting("path", string.IsNullOrWhiteSpace(TxtPCloudPath.Text) ? "/" : TxtPCloudPath.Text.Trim());
             }
+
+            Config.EnableFilePreview = ChkFilePreview.IsChecked == true;
+            Config.InstantProperties = ChkInstantProperties.IsChecked == true;
+            Config.AsyncUpload = ChkAsyncUpload.IsChecked == true;
+            Config.MaintainDateModified = ChkMaintainDateModified.IsChecked == true;
+            Config.MonitorProcessAccess = ChkMonitorProcessAccess.IsChecked == true;
+            Config.QuickRemoteOperations = ChkQuickRemoteOperations.IsChecked == true;
+
+            if (RbRenameSource.IsChecked == true)
+                Config.ConflictResolution = ConflictResolutionMode.RenameSource;
+            else if (RbSkip.IsChecked == true)
+                Config.ConflictResolution = ConflictResolutionMode.Skip;
+            else
+                Config.ConflictResolution = ConflictResolutionMode.OverwriteTarget;
 
             DialogResult = true;
             Close();
