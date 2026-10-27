@@ -25,6 +25,21 @@ namespace OpenMount.Core.Manager
         [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
         public static extern void SHChangeNotify(int wEventId, uint uFlags, string dwItem1, IntPtr dwItem2);
 
+        [DllImport("shell32.dll", EntryPoint = "SHChangeNotify")]
+        public static extern void SHChangeNotifyRaw(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
+
+        public const int SHCNE_ASSOCCHANGED = 0x08000000;
+        public const uint SHCNF_IDLIST = 0x0000;
+
+        public static void NotifyShellRefresh()
+        {
+            try
+            {
+                SHChangeNotifyRaw(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+            }
+            catch { }
+        }
+
         public static bool IsDriveInUse(string driveLetter)
         {
             string clean = driveLetter.TrimEnd('\\');

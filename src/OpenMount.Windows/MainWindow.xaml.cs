@@ -33,7 +33,12 @@ namespace OpenMount.Windows
             InitializeTrayIcon();
             ChkAutoStart.IsChecked = StartupHelper.IsRunOnStartup();
             UpdateWinFspState();
-            UpdateThemeToggleUI();
+            UpdateLanguageToggleUI();
+            LanguageManager.LanguageChanged += () =>
+            {
+                UpdateLanguageToggleUI();
+                UpdateUIState();
+            };
 
             // Load drives and trigger auto-mount immediately on creation (works in background on boot)
             _ = LoadDrivesAsync();
@@ -312,7 +317,10 @@ namespace OpenMount.Windows
         {
             PnlEmptyState.Visibility = Drives.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             int mountedCount = Drives.Count(d => d.IsMounted);
-            TxtStatusSummary.Text = $"{Drives.Count} drive(s) configured | {mountedCount} active";
+            string driveWord = LanguageManager.Get("Loc_DrivesCount");
+            string activeWord = LanguageManager.CurrentLanguage == "vi" ? "đang hoạt động" : "active";
+            string configuredWord = LanguageManager.CurrentLanguage == "vi" ? "đã cấu hình" : "configured";
+            TxtStatusSummary.Text = $"{Drives.Count} {driveWord} {configuredWord} | {mountedCount} {activeWord}";
         }
 
         private void ChkAutoStart_Click(object sender, RoutedEventArgs e)
@@ -325,6 +333,20 @@ namespace OpenMount.Windows
             }
         }
 
+        private void BtnLanguageToggle_Click(object sender, RoutedEventArgs e)
+        {
+            LanguageManager.ToggleLanguage();
+        }
+
+        private void UpdateLanguageToggleUI()
+        {
+            if (BtnLanguageToggle != null)
+            {
+                BtnLanguageToggle.Content = LanguageManager.Get("Loc_LanguageToggle");
+            }
+            UpdateThemeToggleUI();
+        }
+
         private void BtnThemeToggle_Click(object sender, RoutedEventArgs e)
         {
             ThemeManager.ToggleTheme();
@@ -335,7 +357,9 @@ namespace OpenMount.Windows
         {
             if (BtnThemeToggle != null)
             {
-                BtnThemeToggle.Content = ThemeManager.IsDarkMode ? "☀️ Light Mode" : "🌙 Dark Mode";
+                BtnThemeToggle.Content = ThemeManager.IsDarkMode 
+                    ? LanguageManager.Get("Loc_LightMode") 
+                    : LanguageManager.Get("Loc_DarkMode");
             }
             if (_trayDarkModeItem != null)
             {

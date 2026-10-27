@@ -76,11 +76,12 @@ namespace OpenMount.Windows
 
             try
             {
+                LanguageManager.Initialize();
                 ThemeManager.Initialize();
             }
             catch (Exception ex)
             {
-                LogCrash($"ThemeManager initialization error: {ex}");
+                LogCrash($"ThemeManager/LanguageManager initialization error: {ex}");
             }
 
             bool startMinimized = e.Args.Any(a =>

@@ -27,18 +27,20 @@
                         <Image x:Name="ImgAppLogo" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"/>
                         <TextBlock Text="OpenMount" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="High-Performance Virtual Cloud Storage for Windows" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" Margin="38,2,0,0"/>
+                    <TextBlock Text="{DynamicResource Loc_AppSubtitle}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" Margin="38,2,0,0"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <CheckBox x:Name="ChkAutoStart" Content="Run on Windows Startup" VerticalAlignment="Center" 
+                    <CheckBox x:Name="ChkAutoStart" Content="{DynamicResource Loc_RunOnStartup}" VerticalAlignment="Center" 
                               Margin="0,0,16,0" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource BrushTextSecondary}"
                               Click="ChkAutoStart_Click"/>
-                    <Button x:Name="BtnThemeToggle" Content="🌙 Dark Mode" Style="{StaticResource ThemeToggleButton}" 
+                    <Button x:Name="BtnLanguageToggle" Content="{DynamicResource Loc_LanguageToggle}" Style="{StaticResource ThemeToggleButton}" 
+                            Click="BtnLanguageToggle_Click" Margin="0,0,10,0" MinWidth="110" Padding="10,5"/>
+                    <Button x:Name="BtnThemeToggle" Content="{DynamicResource Loc_DarkMode}" Style="{StaticResource ThemeToggleButton}" 
                             Click="BtnThemeToggle_Click" Margin="0,0,14,0" MinWidth="110" Padding="10,5"/>
-                    <Button Content="+ Add Drive" Click="BtnAddDrive_Click" Margin="0,0,8,0" MinWidth="110" Padding="12,6"/>
-                    <Button Content="Mount All" Click="BtnMountAll_Click" Background="#28A745" Margin="0,0,8,0" MinWidth="95" Padding="12,6"/>
-                    <Button Content="Unmount All" Click="BtnUnmountAll_Click" Background="#6C757D" MinWidth="110" Padding="12,6"/>
+                    <Button Content="{DynamicResource Loc_AddDrive}" Click="BtnAddDrive_Click" Margin="0,0,8,0" MinWidth="110" Padding="12,6"/>
+                    <Button Content="{DynamicResource Loc_MountAll}" Click="BtnMountAll_Click" Background="#28A745" Margin="0,0,8,0" MinWidth="95" Padding="12,6"/>
+                    <Button Content="{DynamicResource Loc_UnmountAll}" Click="BtnUnmountAll_Click" Background="#6C757D" MinWidth="110" Padding="12,6"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -56,10 +58,10 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="⚠ " FontSize="14" Foreground="#856404" FontWeight="Bold"/>
-                        <TextBlock Text="WinFsp kernel driver is required to mount virtual cloud drives. Click to install driver." 
+                        <TextBlock Text="{DynamicResource Loc_WinFspMissing}" 
                                    FontSize="12" Foreground="#856404" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Content="Install WinFsp Now" Background="#856404" Foreground="White" 
+                    <Button Grid.Column="1" Content="{DynamicResource Loc_InstallWinFsp}" Background="#856404" Foreground="White" 
                             FontSize="11" Padding="12,4" Click="BtnInstallWinFsp_Click"/>
                 </Grid>
             </Border>
@@ -71,10 +73,10 @@
                             BorderBrush="{DynamicResource BrushCardBorder}" BorderThickness="1" 
                             Padding="40" Margin="0,20,0,0" HorizontalAlignment="Center" Width="550" Visibility="Collapsed">
                         <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="No Drives Configured" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Mount your local folders, Google Drive, or S3/MinIO buckets as native Windows drive letters." 
+                            <TextBlock Text="{DynamicResource Loc_EmptyTitle}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Loc_EmptyDesc}" 
                                        TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,8,0,20" FontSize="13"/>
-                            <Button Content="+ Add Your First Drive" Click="BtnAddDrive_Click" HorizontalAlignment="Center" MinWidth="180" Padding="14,8"/>
+                            <Button Content="{DynamicResource Loc_AddFirstDrive}" Click="BtnAddDrive_Click" HorizontalAlignment="Center" MinWidth="180" Padding="14,8"/>
                         </StackPanel>
                     </Border>
 
@@ -108,7 +110,7 @@
                                             </StackPanel>
                                             <TextBlock Text="{Binding ProviderDetails}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Status: " FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                                <TextBlock Text="{DynamicResource Loc_StatusLabel}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
                                                 <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -133,7 +135,7 @@
                                             <StackPanel Margin="0,6,10,0" Visibility="{Binding HasCapacity, Converter={StaticResource BoolToVisConverter}}">
                                                 <Grid Margin="0,0,0,3">
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                                        <TextBlock Text="Storage: " FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                                        <TextBlock Text="{DynamicResource Loc_StorageLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
                                                         <TextBlock Text="{Binding CapacityText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding CapacityDetails}" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Right"/>
@@ -151,7 +153,7 @@
                                         <!-- Actions -->
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                             <!-- Connect Button -->
-                                            <Button Content="Connect" MinWidth="85" Padding="10,5" Margin="0,0,8,0" Click="BtnConnect_Click">
+                                            <Button Content="{DynamicResource Loc_Connect}" MinWidth="85" Padding="10,5" Margin="0,0,8,0" Click="BtnConnect_Click">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                         <Setter Property="Visibility" Value="Visible"/>
@@ -165,7 +167,7 @@
                                             </Button>
 
                                             <!-- Disconnect Button -->
-                                            <Button Content="Disconnect" MinWidth="105" Padding="10,5" Background="#DC3545" Margin="0,0,8,0" Click="BtnDisconnect_Click">
+                                            <Button Content="{DynamicResource Loc_Disconnect}" MinWidth="105" Padding="10,5" Background="#DC3545" Margin="0,0,8,0" Click="BtnDisconnect_Click">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -179,7 +181,7 @@
                                             </Button>
 
                                             <!-- Open in Explorer Button -->
-                                            <Button Content="Open" MinWidth="65" Padding="10,5" Background="#17A2B8" Margin="0,0,8,0" Click="BtnOpen_Click">
+                                            <Button Content="{DynamicResource Loc_Open}" MinWidth="65" Padding="10,5" Background="#17A2B8" Margin="0,0,8,0" Click="BtnOpen_Click">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -193,7 +195,7 @@
                                             </Button>
 
                                             <!-- Edit Button -->
-                                            <Button Content="Edit" MinWidth="65" Padding="10,5" Margin="0,0,8,0" Click="BtnEdit_Click">
+                                            <Button Content="{DynamicResource Loc_Edit}" MinWidth="65" Padding="10,5" Margin="0,0,8,0" Click="BtnEdit_Click">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
                                                         <Setter Property="IsEnabled" Value="True"/>
@@ -207,7 +209,7 @@
                                             </Button>
 
                                             <!-- Delete Button -->
-                                            <Button Content="Remove" MinWidth="80" Padding="10,5" Click="BtnRemove_Click">
+                                            <Button Content="{DynamicResource Loc_Remove}" MinWidth="80" Padding="10,5" Click="BtnRemove_Click">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource DangerButton}">
                                                         <Setter Property="IsEnabled" Value="True"/>

@@ -52,19 +52,19 @@
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Text="Drive Letter:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Text="{DynamicResource Loc_DriveLetter}" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <ComboBox x:Name="CmbDriveLetter" Grid.Column="1" Height="28" Width="100" HorizontalAlignment="Left" VerticalAlignment="Center"/>
 
-            <TextBlock Grid.Row="1" Text="Drive Label:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="1" Text="{DynamicResource Loc_DriveLabel}" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <TextBox x:Name="TxtLabel" Grid.Row="1" Grid.Column="1" Height="28" VerticalAlignment="Center" Text="My Cloud Drive"/>
 
-            <TextBlock Grid.Row="2" Text="Mount Location:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="2" Text="{DynamicResource Loc_MountLocation}" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <RadioButton x:Name="RbMountNetwork" Content="Network locations (Ổ đĩa mạng)" GroupName="MountLocationGroup" IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                <RadioButton x:Name="RbMountLocal" Content="Local disk (Cục bộ)" GroupName="MountLocationGroup" VerticalAlignment="Center"/>
+                <RadioButton x:Name="RbMountNetwork" Content="{DynamicResource Loc_MountNetwork}" GroupName="MountLocationGroup" IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <RadioButton x:Name="RbMountLocal" Content="{DynamicResource Loc_MountLocal}" GroupName="MountLocationGroup" VerticalAlignment="Center"/>
             </StackPanel>
 
-            <CheckBox x:Name="ChkAutoMount" Grid.Row="3" Grid.Column="1" Content="Mount automatically on startup" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ChkAutoMount" Grid.Row="3" Grid.Column="1" Content="{DynamicResource Loc_AutoMount}" VerticalAlignment="Center"/>
         </Grid>
 
         <!-- Provider Tabs -->
@@ -238,7 +238,7 @@
         <!-- Advanced RaiDrive-style Options -->
         <Border Grid.Row="3" Background="{DynamicResource BrushCardBg}" BorderBrush="{DynamicResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,12,0,0">
             <StackPanel>
-                <TextBlock Text="Advanced Options (Performance &amp; Sync)" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,8"/>
+                <TextBlock Text="{DynamicResource Loc_AdvancedOptions}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,8"/>
                 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -249,7 +249,7 @@
                     <StackPanel Grid.Column="0">
                         <CheckBox x:Name="ChkFilePreview" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="File preview" VerticalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource Loc_FilePreview}" VerticalAlignment="Center"/>
                                 <Border Background="#444444" CornerRadius="3" Padding="4,1" Margin="6,0,0,0">
                                     <TextBlock Text="SLOW" FontSize="9" Foreground="#CCCCCC" FontWeight="Bold"/>
                                 </Border>
@@ -258,7 +258,7 @@
 
                         <CheckBox x:Name="ChkInstantProperties" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Get file properties instantly" VerticalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource Loc_InstantProperties}" VerticalAlignment="Center"/>
                                 <Border Background="#444444" CornerRadius="3" Padding="4,1" Margin="6,0,0,0">
                                     <TextBlock Text="SLOW" FontSize="9" Foreground="#CCCCCC" FontWeight="Bold"/>
                                 </Border>
@@ -267,7 +267,7 @@
 
                         <CheckBox x:Name="ChkAsyncUpload" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Update storage changes asynchronously" VerticalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource Loc_AsyncUpload}" VerticalAlignment="Center"/>
                                 <Border Background="#444444" CornerRadius="3" Padding="4,1" Margin="6,0,0,0">
                                     <TextBlock Text="SLOW" FontSize="9" Foreground="#CCCCCC" FontWeight="Bold"/>
                                 </Border>
@@ -278,7 +278,7 @@
                     <StackPanel Grid.Column="1">
                         <CheckBox x:Name="ChkMaintainDateModified" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Maintain Date modified" VerticalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource Loc_MaintainDateModified}" VerticalAlignment="Center"/>
                                 <Border Background="#444444" CornerRadius="3" Padding="4,1" Margin="6,0,0,0">
                                     <TextBlock Text="SLOW" FontSize="9" Foreground="#CCCCCC" FontWeight="Bold"/>
                                 </Border>
@@ -287,7 +287,7 @@
 
                         <CheckBox x:Name="ChkMonitorProcessAccess" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Monitor process access to files" VerticalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource Loc_ProcessMonitor}" VerticalAlignment="Center"/>
                                 <Border Background="#444444" CornerRadius="3" Padding="4,1" Margin="6,0,0,0">
                                     <TextBlock Text="SLOW" FontSize="9" Foreground="#CCCCCC" FontWeight="Bold"/>
                                 </Border>
@@ -295,13 +295,13 @@
                         </CheckBox>
 
                         <CheckBox x:Name="ChkQuickRemoteOperations" Margin="0,0,0,4">
-                            <TextBlock Text="Quick Copy/Move/Delete (Server-side)" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Loc_QuickRemoteOps}" VerticalAlignment="Center"/>
                         </CheckBox>
                         
                         <StackPanel Orientation="Horizontal" Margin="20,2,0,0">
-                            <RadioButton x:Name="RbOverwrite" Content="Overwrite target" GroupName="ConflictGroup" Margin="0,0,8,0" IsChecked="True" FontSize="11"/>
-                            <RadioButton x:Name="RbRenameSource" Content="Rename source" GroupName="ConflictGroup" Margin="0,0,8,0" FontSize="11"/>
-                            <RadioButton x:Name="RbSkip" Content="Skip" GroupName="ConflictGroup" FontSize="11"/>
+                            <RadioButton x:Name="RbOverwrite" Content="{DynamicResource Loc_OverwriteTarget}" GroupName="ConflictGroup" Margin="0,0,8,0" IsChecked="True" FontSize="11"/>
+                            <RadioButton x:Name="RbRenameSource" Content="{DynamicResource Loc_RenameSource}" GroupName="ConflictGroup" Margin="0,0,8,0" FontSize="11"/>
+                            <RadioButton x:Name="RbSkip" Content="{DynamicResource Loc_Skip}" GroupName="ConflictGroup" FontSize="11"/>
                         </StackPanel>
                     </StackPanel>
                 </Grid>
@@ -310,8 +310,8 @@
 
         <!-- Actions -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Content="Save" MinWidth="95" Padding="12,6" Click="BtnSave_Click" Margin="0,0,10,0"/>
-            <Button Content="Cancel" MinWidth="95" Padding="12,6" Style="{StaticResource SecondaryButton}" Click="BtnCancel_Click"/>
+            <Button Content="{DynamicResource Loc_Save}" MinWidth="95" Padding="12,6" Click="BtnSave_Click" Margin="0,0,10,0"/>
+            <Button Content="{DynamicResource Loc_Cancel}" MinWidth="95" Padding="12,6" Style="{StaticResource SecondaryButton}" Click="BtnCancel_Click"/>
         </StackPanel>
     </Grid>
 </Window>

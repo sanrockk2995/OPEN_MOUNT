@@ -78,6 +78,52 @@ namespace OpenMount.Tests
         }
 
         [Fact]
+        public void DriveIconHelper_NetworkMount_SetsMountPoints2AndAppDrivesRegistryCleanly()
+        {
+            string testLetter = "Q:";
+            string dummyIcon = Path.Combine(_tempFolder, "net_icon.ico");
+            File.WriteAllText(dummyIcon, "net icon");
+            string testHost = "OpenMount-TestHost";
+            string testShare = "TestShare";
+            string testLabel = "Google Drive (No UNC Prefix)";
+
+            try
+            {
+                DriveIconHelper.RegisterDriveIcon(testLetter, dummyIcon, testLabel, testHost, testShare);
+
+                // 1. Verify Classes\Applications\Explorer.exe\Drives\Q\DefaultIcon
+                using (var appKey = Registry.CurrentUser.OpenSubKey(@"Software\Classes\Applications\Explorer.exe\Drives\Q\DefaultIcon"))
+                {
+                    Assert.NotNull(appKey);
+                    Assert.Equal(dummyIcon, appKey!.GetValue(null));
+                }
+
+                // 2. Verify MountPoints2\##OpenMount-TestHost#TestShare _LabelFromReg
+                using (var mpKey = Registry.CurrentUser.OpenSubKey($@"Software\Microsoft\Windows\CurrentVersion\Explorer\MountPoints2\##{testHost}#{testShare}"))
+                {
+                    Assert.NotNull(mpKey);
+                    Assert.Equal(testLabel, mpKey!.GetValue("_LabelFromReg"));
+                }
+
+                // 3. Unregister and verify cleanup
+                DriveIconHelper.UnregisterDriveIcon(testLetter, testHost, testShare);
+
+                using (var afterApp = Registry.CurrentUser.OpenSubKey(@"Software\Classes\Applications\Explorer.exe\Drives\Q"))
+                {
+                    Assert.Null(afterApp);
+                }
+                using (var afterMp = Registry.CurrentUser.OpenSubKey($@"Software\Microsoft\Windows\CurrentVersion\Explorer\MountPoints2\##{testHost}#{testShare}"))
+                {
+                    Assert.Null(afterMp);
+                }
+            }
+            finally
+            {
+                DriveIconHelper.UnregisterDriveIcon(testLetter, testHost, testShare);
+            }
+        }
+
+        [Fact]
         public void DriveIconHelper_ResolveProviderIcon_ReturnsNullOrValidPath()
         {
             string? icon = DriveIconHelper.ResolveProviderIcon("gdrive");

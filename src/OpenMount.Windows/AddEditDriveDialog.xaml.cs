@@ -21,6 +21,9 @@ namespace OpenMount.Windows
             _isEditing = existingConfig != null;
             Config = existingConfig ?? new DriveConfig();
 
+            TxtHeader.Text = LanguageManager.Get("Loc_DialogTitleAdd");
+            Title = TxtHeader.Text + " - OpenMount";
+
             PopulateDriveLetters();
             LoadExistingConfig();
             LoadAdvancedOptions();
@@ -104,7 +107,8 @@ namespace OpenMount.Windows
         {
             if (!_isEditing) return;
 
-            TxtHeader.Text = "Edit Drive Configuration";
+            TxtHeader.Text = LanguageManager.Get("Loc_DialogTitleEdit");
+            Title = TxtHeader.Text + " - OpenMount";
             TxtLabel.Text = Config.Label;
             ChkAutoMount.IsChecked = Config.AutoMount;
 
