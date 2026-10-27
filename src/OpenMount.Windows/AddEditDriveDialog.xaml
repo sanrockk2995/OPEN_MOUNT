@@ -48,6 +48,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="32"/>
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
 
@@ -57,7 +58,13 @@
             <TextBlock Grid.Row="1" Text="Drive Label:" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <TextBox x:Name="TxtLabel" Grid.Row="1" Grid.Column="1" Height="28" VerticalAlignment="Center" Text="My Cloud Drive"/>
 
-            <CheckBox x:Name="ChkAutoMount" Grid.Row="2" Grid.Column="1" Content="Mount automatically on startup" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Text="Mount Location:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <RadioButton x:Name="RbMountNetwork" Content="Network locations (Ổ đĩa mạng)" GroupName="MountLocationGroup" IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <RadioButton x:Name="RbMountLocal" Content="Local disk (Cục bộ)" GroupName="MountLocationGroup" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <CheckBox x:Name="ChkAutoMount" Grid.Row="3" Grid.Column="1" Content="Mount automatically on startup" VerticalAlignment="Center"/>
         </Grid>
 
         <!-- Provider Tabs -->

@@ -45,6 +45,7 @@ namespace OpenMount.Core.Manager
 
             try
             {
+                DriveIconHelper.UnregisterDriveIcon(Config.DriveLetter);
                 Host.Unmount();
                 FileSystem.IsMounted = false;
             }
@@ -126,6 +127,18 @@ namespace OpenMount.Core.Manager
             var vfs = new VirtualFileSystem(provider, config.StagingPath, cacheManager, config);
             var host = new FileSystemHost(vfs);
 
+            if (config.MountAsNetworkDrive)
+            {
+                string shareHost = !string.IsNullOrWhiteSpace(config.NetworkShareHost)
+                    ? config.NetworkShareHost.Trim()
+                    : $"OpenMount-{Environment.UserName}";
+                string safeLabel = !string.IsNullOrWhiteSpace(config.Label)
+                    ? config.Label.Trim().Replace('/', '-').Replace('\\', '-')
+                    : "Cloud Drive";
+
+                host.Prefix = $@"\{shareHost}\{safeLabel}";
+            }
+
             int status = host.Mount(driveLetter, null, false, 0);
             if (status != 0)
             {
@@ -135,6 +148,10 @@ namespace OpenMount.Core.Manager
             }
 
             vfs.IsMounted = true;
+
+            // Register custom Drive Icon and Label for Windows Explorer
+            string? iconPath = DriveIconHelper.ResolveProviderIcon(config.ProviderType, config.CustomIconPath);
+            DriveIconHelper.RegisterDriveIcon(driveLetter, iconPath, config.Label);
 
             var context = new MountedDriveContext(config, provider, vfs, host);
             _mountedDrives[driveLetter] = context;
@@ -149,6 +166,7 @@ namespace OpenMount.Core.Manager
             string clean = NormalizeDriveLetter(driveLetter);
             if (_mountedDrives.TryRemove(clean, out var context))
             {
+                DriveIconHelper.UnregisterDriveIcon(clean);
                 await context.DisposeAsync().ConfigureAwait(false);
                 DosDeviceHelper.NotifyDriveRemoved(clean);
             }

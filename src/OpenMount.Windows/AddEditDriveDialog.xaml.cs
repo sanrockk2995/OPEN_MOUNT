@@ -28,6 +28,15 @@ namespace OpenMount.Windows
 
         private void LoadAdvancedOptions()
         {
+            if (Config.MountAsNetworkDrive)
+            {
+                RbMountNetwork.IsChecked = true;
+            }
+            else
+            {
+                RbMountLocal.IsChecked = true;
+            }
+
             ChkFilePreview.IsChecked = Config.EnableFilePreview;
             ChkInstantProperties.IsChecked = Config.InstantProperties;
             ChkAsyncUpload.IsChecked = Config.AsyncUpload;
@@ -365,6 +374,7 @@ namespace OpenMount.Windows
                 Config.SetSetting("path", string.IsNullOrWhiteSpace(TxtPCloudPath.Text) ? "/" : TxtPCloudPath.Text.Trim());
             }
 
+            Config.MountAsNetworkDrive = RbMountNetwork.IsChecked == true;
             Config.EnableFilePreview = ChkFilePreview.IsChecked == true;
             Config.InstantProperties = ChkInstantProperties.IsChecked == true;
             Config.AsyncUpload = ChkAsyncUpload.IsChecked == true;

@@ -21,6 +21,11 @@ namespace OpenMount.Core.Manager
         public bool AutoMount { get; set; } = false;
         public string? StagingPath { get; set; }
 
+        // Network Location vs Local Disk Mounting (RaiDrive Network locations)
+        public bool MountAsNetworkDrive { get; set; } = true;
+        public string? NetworkShareHost { get; set; }
+        public string? CustomIconPath { get; set; }
+
         // Advanced Options (RaiDrive Mode)
         public bool EnableFilePreview { get; set; } = true;
         public bool InstantProperties { get; set; } = false;
